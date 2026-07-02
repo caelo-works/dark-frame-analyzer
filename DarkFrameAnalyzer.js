@@ -22,7 +22,7 @@
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
 
-#define VERSION "1.4.0"
+#define VERSION "1.5.0"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
@@ -635,24 +635,13 @@ function analyzeSingleDark(filePath, params)
       // like astropy's mad_std.
       metrics.mad = histogramMAD(histogram, metrics.median);
 
-      // --- Clipped statistics (2 passes) ---
-      // 1) median and MAD are already known
-      // 2) clip at median +/- 3*MAD_sigma and recompute mean/stdDev
-      var clipLow = (metrics.median - 3.0 * metrics.mad) / SCALE;
-      var clipHigh = (metrics.median + 3.0 * metrics.mad) / SCALE;
-      if (clipLow < 0) clipLow = 0;
-      if (clipHigh > 1) clipHigh = 1;
-
-      image.rangeClippingEnabled = true;
-      image.rangeClipLow = clipLow;
-      image.rangeClipHigh = clipHigh;
-
-      metrics.meanClip = image.mean() * SCALE;
-      metrics.medianClip = image.median() * SCALE;
-      metrics.stdClip = image.stdDev() * SCALE;
-
-      // Disable clipping for the next statistics
-      image.rangeClippingEnabled = false;
+      // --- Clipped statistics (iterative, like astropy) ---
+      // Seeded with the robust median/MAD, then iterated to convergence
+      var clipped = iterativeClippedStats(image, metrics.median,
+         metrics.mad > 0 ? metrics.mad : metrics.stdDev);
+      metrics.meanClip = clipped.mean;
+      metrics.medianClip = clipped.median;
+      metrics.stdClip = clipped.std;
 
       // --- Hot pixel counting through the histogram ---
       metrics.nHot1k = sumBinsAbove(histogram, 1000);
@@ -787,6 +776,59 @@ function patchMedian(image, x0, y0, w, h)
    var med = image.median();
    image.resetSelections();
    return med;
+}
+
+function iterativeClippedStats(image, startCenter, startSigma)
+{
+   // Iterative sigma clipping like astropy's sigma_clipped_stats: clip at
+   // center +/- 3*sigma, recompute median/std on the surviving pixels,
+   // tighten the bounds and repeat until convergence (max 5 iterations).
+   // The single-pass version underestimated how much the hot pixel tails
+   // widen the first set of bounds.
+   var result = { mean: 0, median: 0, std: 0 };
+
+   if (startSigma <= 0) {
+      // Degenerate (constant) distribution: nothing to clip
+      result.mean = image.mean() * SCALE;
+      result.median = image.median() * SCALE;
+      result.std = image.stdDev() * SCALE;
+      return result;
+   }
+
+   var center = startCenter;
+   var sigma = startSigma;
+   var prevLow = null, prevHigh = null;
+
+   image.rangeClippingEnabled = true;
+   try {
+      for (var it = 0; it < 5; ++it) {
+         var clipLow = (center - 3.0 * sigma) / SCALE;
+         var clipHigh = (center + 3.0 * sigma) / SCALE;
+         if (clipLow < 0) clipLow = 0;
+         if (clipHigh > 1) clipHigh = 1;
+         if (clipLow === prevLow && clipHigh === prevHigh)
+            break;  // bounds stable: converged
+         prevLow = clipLow;
+         prevHigh = clipHigh;
+
+         image.rangeClipLow = clipLow;
+         image.rangeClipHigh = clipHigh;
+         result.mean = image.mean() * SCALE;
+         result.median = image.median() * SCALE;
+         result.std = image.stdDev() * SCALE;
+
+         center = result.median;
+         sigma = result.std;
+         if (sigma <= 0)
+            break;  // everything identical inside the bounds
+      }
+   }
+   finally {
+      // Always restore unclipped statistics for the caller
+      image.rangeClippingEnabled = false;
+   }
+
+   return result;
 }
 
 
