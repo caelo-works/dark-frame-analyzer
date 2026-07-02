@@ -22,7 +22,7 @@
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
 
-#define VERSION "1.0.1"
+#define VERSION "1.0.2"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
@@ -823,6 +823,7 @@ function DarkAnalyzerDialog()
    this.filePaths = [];
    this.allMetrics = [];
    this.refs = null;
+   this.busy = false;  // analyse en cours (verrouille la GUI)
 
    // -----------------------------------------------------------------------
    // Titre
@@ -1177,6 +1178,23 @@ DarkAnalyzerDialog.prototype.renumberRows = function()
    }
 };
 
+DarkAnalyzerDialog.prototype.setBusy = function(busy)
+{
+   // processEvents() rend la GUI reactive pendant l'analyse : on verrouille
+   // tous les controles pour empecher un second run ou une modification de
+   // la liste des fichiers en plein traitement.
+   this.busy = busy;
+   var enabled = !busy;
+   this.analyzeButton.enabled = enabled;
+   this.closeButton.enabled = enabled;
+   this.addFilesButton.enabled = enabled;
+   this.addDirButton.enabled = enabled;
+   this.removeButton.enabled = enabled;
+   this.clearButton.enabled = enabled;
+   this.fileTreeBox.enabled = enabled;
+   this.paramsGroupBox.enabled = enabled;
+};
+
 DarkAnalyzerDialog.prototype.readParamsFromGUI = function()
 {
    this.params.outlierSigmaMedian = this.sigmaMedianControl.value;
@@ -1255,12 +1273,25 @@ DarkAnalyzerDialog.prototype.updateRowSeverity = function(m)
 
 DarkAnalyzerDialog.prototype.runAnalysis = function()
 {
+   if (this.busy) return;
+
    if (this.filePaths.length === 0) {
       (new MessageBox("Aucun fichier à analyser.\nAjoutez des fichiers FITS d'abord.",
          TITLE, StdIcon_Warning, StdButton_Ok)).execute();
       return;
    }
 
+   this.setBusy(true);
+   try {
+      this.doAnalysis();
+   }
+   finally {
+      this.setBusy(false);  // toujours deverrouiller, meme en cas d'erreur
+   }
+};
+
+DarkAnalyzerDialog.prototype.doAnalysis = function()
+{
    // Lire les parametres de la GUI
    this.readParamsFromGUI();
 
