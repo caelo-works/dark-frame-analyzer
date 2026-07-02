@@ -81,6 +81,9 @@ requires `numpy` + `astropy`) is included for scripted/CI usage.
 
 ## Development
 
+<details>
+<summary><b>Tests &amp; CI</b></summary>
+
 Logic-level tests (statistics, CSV, i18n, outlier detection) run under
 Node without PixInsight:
 
@@ -90,6 +93,8 @@ tests/run.sh
 
 The same suite plus a packaging dry-run runs in CI on every pull request;
 GUI and image I/O are validated manually in PixInsight.
+
+</details>
 
 ## Releasing — update-repository package
 
