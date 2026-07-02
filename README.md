@@ -6,11 +6,11 @@
 
 [![Version](https://img.shields.io/badge/version-1.8.0-22d3ee?style=for-the-badge&labelColor=0f172a)](https://github.com/caelo-works/dark-frame-analyzer/releases/latest)
 [![PixInsight](https://img.shields.io/badge/PixInsight-%E2%89%A5%201.9.0-67e8f9?style=for-the-badge&labelColor=0f172a)](https://pixinsight.com/)
-[![Status](https://img.shields.io/badge/status-stable-34d399?style=for-the-badge&labelColor=0f172a)](https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer)
+[![Status](https://img.shields.io/badge/status-stable-34d399?style=for-the-badge&labelColor=0f172a)](https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer)
 [![License](https://img.shields.io/badge/license-GPL--3.0-94a3b8?style=for-the-badge&labelColor=0f172a)](LICENSE)
-[![Website](https://img.shields.io/badge/%E2%86%92%20see%20all%20scripts-pixinsight--scripts.caelo.works-0f172a?style=for-the-badge&labelColor=22d3ee)](https://pixinsight-scripts.caelo.works)
+[![Website](https://img.shields.io/badge/%E2%86%92%20see%20all%20scripts-pixinsight--scripts.caelo.works-0f172a?style=for-the-badge&labelColor=22d3ee)](https://pixinsight-scripts.caelo.works/en)
 
-[![CaeloWorks · PixInsight Scripts](https://pixinsight-scripts.caelo.works/assets/readme-banner.png)](https://pixinsight-scripts.caelo.works)
+[![CaeloWorks · PixInsight Scripts](https://pixinsight-scripts.caelo.works/assets/readme-banner.png)](https://pixinsight-scripts.caelo.works/en)
 
 </div>
 
@@ -25,7 +25,7 @@ drift, spatial uniformity) and flags the frames that don't belong, so you
 integrate only clean darks in WBPP. Results appear in a color-coded table,
 a detailed console report, a CSV export and a ready-to-use exclusion list.
 
-> 📖 **Full details, screenshots & docs:** **[pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer](https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer)**
+> 📖 **Full details, screenshots & docs:** **[pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer](https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer)**
 
 ## Screenshots
 
@@ -80,7 +80,7 @@ requires `numpy` + `astropy`) is included for scripted/CI usage.
 
 ## Links
 
-- 🌐 **Script page:** [pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer](https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer)
+- 🌐 **Script page:** [pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer](https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer)
 - 📦 **Releases:** [github.com/caelo-works/dark-frame-analyzer/releases](https://github.com/caelo-works/dark-frame-analyzer/releases)
 
 ---
@@ -89,9 +89,9 @@ requires `numpy` + `astropy`) is included for scripted/CI usage.
 
 ### 🌌 More PixInsight scripts by CaeloWorks
 
-**[Explore the full catalogue → pixinsight-scripts.caelo.works](https://pixinsight-scripts.caelo.works)**
+**[Explore the full catalogue → pixinsight-scripts.caelo.works](https://pixinsight-scripts.caelo.works/en)**
 
-<sub>Made by <a href="https://caelo.works">CaeloWorks</a> · astrophotography software, firmware & hardware · GPL-3.0 License</sub>
+<sub>Made by <a href="https://caelo.works/en">CaeloWorks</a> · astrophotography software, firmware & hardware · GPL-3.0 License</sub>
 
 <sub>PixInsight is a registered trademark of Pleiades Astrophoto, S.L. CaeloWorks is an independent third-party developer.</sub>
 
