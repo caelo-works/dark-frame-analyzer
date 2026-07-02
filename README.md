@@ -76,10 +76,10 @@ folder containing the file. Alternatively, run it once via
 3. Click **Analyze**: each frame is classified **Valid** / **Alert** / **Rejected**, with the reasons in the status tooltip and the full report in the process console.
 4. Export the **CSV** for your records, and use **WBPP exclusions…** to keep the flagged frames out of integration.
 
-A standalone Python reference implementation (`analyze_darks_series.py`,
-requires `numpy` + `astropy`) is included for scripted/CI usage.
-
 ## Development
+
+<details>
+<summary><b>Tests &amp; CI</b></summary>
 
 Logic-level tests (statistics, CSV, i18n, outlier detection) run under
 Node without PixInsight:
@@ -90,6 +90,8 @@ tests/run.sh
 
 The same suite plus a packaging dry-run runs in CI on every pull request;
 GUI and image I/O are validated manually in PixInsight.
+
+</details>
 
 ## Releasing — update-repository package
 
@@ -120,6 +122,28 @@ version passed as argument doesn't match.
 **Every GitHub release must attach three assets:** `DarkFrameAnalyzer.js`,
 the versioned zip and `update-package.json` — and move the corresponding
 `CHANGELOG.md` entries out of *Unreleased*.
+
+### Code signing (not enabled yet)
+
+Once the CaeloWorks CPD identity is validated by Pleiades Astrophoto,
+releases will be signed by pointing the build at the key file:
+
+```bash
+XSSK_PATH=/path/to/key.xssk scripts/build-update-package.sh <version>
+```
+
+The key password is prompted on the terminal and handed to PixInsight as
+a command-scoped environment variable — the build never writes it to a
+file, a log or a command line, and none of its other child processes see
+it. Presetting `XSSK_PASS` in the environment skips the prompt (for
+automation): the build un-exports it immediately, but the value then
+lives in *your* shell history or CI configuration before reaching it.
+Signing runs inside a local PixInsight installation and adds the `.xsgn`
+next to the script in the zip. A signed zip is not byte-reproducible
+across signings (the signature is timestamped): each signing produces a
+new sha1, which the update repository re-ingests. **Until the identity is
+validated, releases stay unsigned on purpose** — an unverifiable
+signature is worse for users than the dismissable "unsigned" warning.
 
 ## Links
 

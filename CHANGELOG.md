@@ -14,9 +14,20 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 - Node test suite (`tests/`) covering the statistics, CSV export,
   translations and outlier detection, and a CI pipeline (tests +
   packaging dry-run) required on every pull request.
+- Optional code-signing step in the packaging (disabled until the
+  CaeloWorks CPD identity is validated): `XSSK_PATH` triggers `.xsgn`
+  generation through PixInsight. The key password is prompted (or preset
+  for automation) and never persisted by the build.
 
 ### Changed
 - README rewritten in English on the CaeloWorks template.
+
+### Removed
+- The Python reference implementation (`analyze_darks_series.py`). It had
+  been frozen at the v1.0 behavior while the PixInsight script moved on
+  (spatial uniformity detection, extended anti-quantization safeguards,
+  CSV export, XISF); the versioned Node test suite now plays the
+  statistical-reference role. It remains available in the git history.
 
 ## [1.8.0] — 2026-07-02
 
