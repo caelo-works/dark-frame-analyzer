@@ -1201,6 +1201,7 @@ function DarkAnalyzerDialog()
 
    this.exportCsvButton = new PushButton(this);
    this.exportCsvButton.text = "Exporter CSV...";
+   this.exportCsvButton.icon = this.scaledResource(":/icons/document-csv.png");
    this.exportCsvButton.toolTip = "Exporter les métriques de la dernière analyse dans un fichier CSV";
    this.exportCsvButton.enabled = false;  // actif apres une analyse
    this.exportCsvButton.onClick = function() { self.exportCsv(); };
