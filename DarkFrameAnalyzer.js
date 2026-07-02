@@ -966,12 +966,18 @@ function detectOutliers(allMetrics, params)
       }
 
       // --- Spatial uniformity check (amp glow, gradients, light leaks) ---
+      // The statistical test only runs when the series has a natural
+      // dispersion (refDeltaMad > 0.5): ADC quantization makes the deltas
+      // take a handful of discrete values, so a zero MAD would turn a
+      // single quantization step into a huge z-score (same pitfall as
+      // the median check).
       if (m.maxCornerDelta !== null) {
+         var zDeltaMeaningful = (refDeltaMad !== null) && (refDeltaMad > 0.5);
          if (Math.abs(m.maxCornerDelta) > params.uniformityDeltaMax) {
             flags.push(tr("flag.uniformityAbs", m.maxCornerDelta.toFixed(1)));
             if (severity !== "critical") severity = "warning";
          }
-         else if (refDelta !== null) {
+         else if (refDelta !== null && zDeltaMeaningful) {
             var zDelta = Math.abs(m.maxCornerDelta - refDelta) / effectiveDeltaDisp;
             if (zDelta > params.outlierSigmaUniformity) {
                flags.push(tr("flag.uniformity", m.maxCornerDelta.toFixed(1),
@@ -2020,7 +2026,8 @@ DarkAnalyzerDialog.prototype.addFile = function(filePath)
    node.setAlignment(0, TextAlign_Left);
    node.setText(1, fname);
    node.setText(COL_PATH, filePath);  // unique row identifier
-   // Columns 2-7 stay empty until the analysis
+   // Columns 2-COL_DELTA stay empty until the analysis
+   this.fileTreeBox.adjustColumnWidthToContents(0);
 };
 
 DarkAnalyzerDialog.prototype.removeFileByPath = function(filePath)
@@ -2057,6 +2064,8 @@ DarkAnalyzerDialog.prototype.renumberRows = function()
    for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
       this.fileTreeBox.child(i).setText(0, padLeft(String(i + 1), 4));
    }
+   // Fixed widths get elided ("...") on scaled displays: fit to content
+   this.fileTreeBox.adjustColumnWidthToContents(0);
 };
 
 DarkAnalyzerDialog.prototype.setBusy = function(busy)
@@ -2247,6 +2256,7 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
    // Sort by severity (criticals on top)
    this.fileTreeBox.sort(COL_STATE, true);
    this.renumberRows();
+   this.fileTreeBox.adjustColumnWidthToContents(COL_STATE);
 
    // Full console report
    generateConsoleReport(this.allMetrics, this.refs, this.params);
