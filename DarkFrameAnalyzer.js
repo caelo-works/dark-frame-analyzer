@@ -1,17 +1,17 @@
 // ============================================================================
-// DarkFrameAnalyzer.js — Analyse de serie de darks pour PixInsight
+// DarkFrameAnalyzer.js — Dark frame series analysis for PixInsight
 // ============================================================================
 //
-// Analyse une serie de darks FITS, calcule les statistiques cles pour chaque
-// brute, identifie les outliers pour exclusion avant empilement dans WBPP.
+// Analyzes a series of dark FITS frames, computes key statistics for each
+// frame and identifies outliers to exclude before WBPP integration.
 //
 // ATR585C calibration pipeline
 // ============================================================================
 
 #feature-id    Utilities > DarkFrameAnalyzer
-#feature-info  Analyse de serie de darks astrophotographiques pour detection \
-               d'outliers avant empilement WBPP. Calcule median, MAD, hot pixels, \
-               uniformite spatiale et detecte les frames hors norme.
+#feature-info  Astrophotography dark series analysis for outlier detection \
+               before WBPP integration. Computes median, MAD, hot pixels and \
+               spatial uniformity, and flags out-of-spec frames.
 
 #include <pjsr/Sizer.jsh>
 #include <pjsr/NumericControl.jsh>
@@ -22,13 +22,13 @@
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
 
-#define VERSION "1.2.0"
+#define VERSION "1.3.0"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
 
 // ============================================================================
-// CONFIGURATION PAR DEFAUT
+// DEFAULT CONFIGURATION
 // ============================================================================
 
 var DEFAULT_PARAMS = {
@@ -46,7 +46,362 @@ var DEFAULT_PARAMS = {
 
 
 // ============================================================================
-// HELPERS — STATISTIQUES SUR TABLEAUX JS
+// LOCALIZATION
+// ============================================================================
+//
+// All user-visible strings live in the STRINGS table below. English is the
+// reference language and the fallback when a key is missing in another
+// language. The selected language persists across sessions via Settings.
+//
+// tr("key", a, b, ...) returns the string for the current language with
+// %1, %2, ... placeholders replaced by the extra arguments.
+
+var SETTINGS_KEY_BASE = "DarkFrameAnalyzer";
+
+var STRINGS = {
+
+   en: {
+      // Main dialog
+      "help":              "Add dark FITS files, configure the detection thresholds, then run the analysis.",
+      "lang.label":        "Language:",
+      "col.num":           "#",
+      "col.file":          "File",
+      "col.temp":          "Temp.",
+      "col.median":        "Median",
+      "col.noise":         "Noise",
+      "col.hotpx":         "Hot px",
+      "col.sat":           "Sat.",
+      "col.state":         "Status",
+      "files.group":       "Darks",
+      "btn.addFiles":      "+ Darks",
+      "btn.addFiles.tt":   "Add FITS files",
+      "btn.addDir":        "+ Directory",
+      "btn.addDir.tt":     "Add all FITS files from a directory",
+      "btn.remove":        "- Remove",
+      "btn.remove.tt":     "Remove the selected files",
+      "btn.clear":         "Clear all",
+      "btn.clear.tt":      "Remove all files",
+      "dlg.selectFiles":   "Select dark FITS files",
+      "dlg.fitsFilter":    "FITS files",
+      "dlg.selectDir":     "Select a directory of darks",
+      "params.group":      "Detection thresholds",
+      "temp.group":        "Temperature",
+      "temp.hint":         "Tolerated difference between setpoint and sensor temperature.",
+      "temp.max":          "Max deviation (°C):",
+      "median.group":      "Median",
+      "median.hint":       "Detects darks whose thermal signal differs from the series.",
+      "lbl.sigma":         "Sensitivity (sigma):",
+      "lbl.warnAdu":       "Warning (ADU):",
+      "lbl.critAdu":       "Rejection (ADU):",
+      "noise.group":       "Noise",
+      "noise.hint":        "Detects abnormal read noise (image MAD).",
+      "hotpx.group":       "Hot pixels",
+      "hotpx.hint":        "Counts pixels above the threshold and detects deviations.",
+      "hotpx.threshold":   "Threshold (ADU):",
+      "sat.group":         "Saturation",
+      "sat.hint":          "Maximum number of saturated pixels accepted per dark.",
+      "sat.max":           "Max saturated pixels:",
+      "btn.analyze":       "Analyze",
+      "btn.analyze.tt":    "Run the analysis on all darks",
+      "btn.exportCsv":     "Export CSV...",
+      "btn.exportCsv.tt":  "Export the metrics of the last analysis to a CSV file",
+      "btn.exclusions":    "WBPP exclusions...",
+      "btn.exclusions.tt": "List of darks to keep out of integration: .txt export or move to a rejected/ subdirectory",
+      "btn.close":         "Close",
+      "msg.noFiles":       "No files to analyze.\nAdd FITS files first.",
+      "err.open":          "Unable to open the file",
+      "state.valid":       "Valid",
+      "state.warning":     "Alert",
+      "state.rejected":    "Rejected",
+      "state.error":       "Error",
+      "state.err":         "ERR",
+      "tt.noAnomaly":      "No anomaly",
+      "tt.error":          "Error: %1",
+      "sum.valid":         "valid",
+      "sum.warn":          "warning(s)",
+      "sum.crit":          "rejected",
+      "csv.caption":       "Export metrics to CSV",
+      "csv.filter":        "CSV files",
+      "filter.all":        "All files",
+      "csv.done":          "Metrics exported:\n%1",
+      "csv.doneLog":       "Metrics exported: %1",
+      "csv.fail":          "CSV export failed:\n%1",
+      "excl.none":         "No dark to exclude — 100% clean series.",
+
+      // Analysis run + console report
+      "run.start":         "Starting analysis of %1 darks...",
+      "run.progress":      "Analyzing [%1/%2] ",
+      "run.elapsed":       "Per-frame analysis completed in %1 s",
+      "rep.title":         "DARK SERIES ANALYSIS",
+      "rep.files":         "Files       : %1 FITS analyzed (%2 read successfully)",
+      "rep.params":        "Detected parameters:",
+      "rep.gain":          "  Gain        : [%1]",
+      "rep.offset":        "  Offset      : [%1]",
+      "rep.expt":          "  Exposure    : [%1] s",
+      "rep.settemp":       "  SET-TEMP    : [%1] °C",
+      "rep.multiGain":     "  WARNING: multiple gains in the series",
+      "rep.multiOffset":   "  WARNING: multiple offsets in the series",
+      "rep.multiExpt":     "  WARNING: multiple exposure times in the series",
+      "rep.tableTitle":    "PER-DARK METRICS TABLE",
+      "rep.colFile":       "File",
+      "rep.colTccd":       "T_ccd",
+      "rep.colMedian":     "Median",
+      "rep.colMeanClip":   "MeanClip",
+      "rep.colMad":        "MAD",
+      "rep.colHot":        "Hot>5k",
+      "rep.colSat":        "Sat.",
+      "rep.colState":      "Status",
+      "rep.error":         " ERROR: %1",
+      "rep.refsTitle":     "SERIES STATISTICAL REFERENCES",
+      "rep.statMetric":    "Metric",
+      "rep.statMedian":    "Median",
+      "rep.statSigma":     "s (MAD)",
+      "rep.statMin":       "Min",
+      "rep.statMax":       "Max",
+      "rep.statRange":     "Range",
+      "rep.statClipMed":   "Clipped median (ADU)",
+      "rep.statMad":       "Robust MAD (ADU)",
+      "rep.statHot":       "Hot pixels > 5000",
+      "rep.statSat":       "Saturated pixels",
+      "rep.statTemp":      "CCD temperature (C)",
+      "rep.alertsTitle":   "ALERTS - OUT-OF-SPEC DARKS (%1/%2)",
+      "rep.noAnomaly":     "No anomaly detected. Homogeneous, good-quality series.",
+      "rep.recoTitle":     "RECOMMENDATIONS",
+      "rep.critList":      "%1 critical dark(s) to exclude from integration:",
+      "rep.warnList":      "%1 dark(s) to review (potentially exclude):",
+      "rep.warnAdvice":    "   -> These darks will probably be handled fine by a Winsorized\n      Sigma 3.0/4.0 rejection in WBPP, but you may exclude them\n      manually for extra cleanliness.",
+      "rep.clean":         "100% homogeneous series — ready for integration without exclusions.",
+      "rep.stackTitle":    "For integration:",
+      "rep.stackTotal":    "  - %1 usable darks in total",
+      "rep.stackClean":    "  - %1 perfectly clean darks",
+      "rep.stackReco":     "  - Recommendation: Winsorized Sigma Clipping 3.0/4.0 in WBPP",
+      "rep.stackNorm":     "  - Normalization: No normalization",
+      "rep.stackOut":      "  - Output: float32 FITS or XISF",
+      "rep.done":          "Analysis complete — %1 files processed",
+
+      // Outlier flags
+      "flag.readError":    "read error: %1",
+      "flag.medianCrit":   "median strongly offset (%1 vs ref %2, d=%3 ADU)",
+      "flag.medianWarn":   "median offset (%1 vs ref %2, d=%3 ADU%4)",
+      "flag.medianStat":   "statistically offset median (%1 vs ref %2, %3s)",
+      "flag.noiseWarn":    "abnormal noise (MAD=%1 vs ref %2, d=%3 ADU%4)",
+      "flag.noiseStat":    "abnormal noise (MAD=%1 vs ref %2, %3s)",
+      "flag.hotpx":        "unusual hot pixel count (%1 vs ref %2, %3s)",
+      "flag.tempDrift":    "thermal drift (%1 °C)",
+      "flag.saturation":   "massive saturation (%1 pixels)",
+      "flag.sigmaSuffix":  ", %1s",
+
+      // WBPP exclusion dialog
+      "excl.title":        "WBPP exclusions",
+      "excl.help":         "List of darks to keep out of integration. Copy it, export it to a .txt file, or move the files to a 'rejected' subdirectory so WBPP won't see them.",
+      "excl.inclWarn":     "Include alerts (default: rejected only)",
+      "excl.inclWarn.tt":  "Rejected (critical) darks are always listed. Check to also include warning-level darks.",
+      "excl.count":        "%1 file(s) to exclude",
+      "excl.movedCount":   " — %1 already moved",
+      "excl.exportTxt":    "Export .txt...",
+      "excl.exportTxt.tt": "Write the list (one path per line) to a text file",
+      "excl.move":         "Move to rejected/...",
+      "excl.move.tt":      "Move the listed files to a 'rejected' subdirectory next to the darks (with confirmation)",
+      "excl.exportCaption": "Export the exclusion list",
+      "txt.filter":        "Text files",
+      "excl.exportDone":   "Exclusion list exported:\n%1",
+      "excl.exportDoneLog": "Exclusion list exported: %1",
+      "excl.exportFail":   "Export failed:\n%1",
+      "excl.confirmMove":  "Move %1 file(s) to a 'rejected' subdirectory (created next to the darks)?\n\nMoved files will be removed from the analysis list.",
+      "excl.exists":       "a file with the same name already exists in rejected/",
+      "excl.movedLog":     "Moved: %1 -> %2",
+      "excl.moveReport":   "%1 file(s) moved to rejected/",
+      "excl.moveFailures": "\n\nFailures (%1):\n%2"
+   },
+
+   fr: {
+      // Dialogue principal
+      "help":              "Ajoutez des fichiers FITS de darks, configurez les seuils, puis lancez l'analyse.",
+      "lang.label":        "Langue :",
+      "col.num":           "#",
+      "col.file":          "Fichier",
+      "col.temp":          "Temp.",
+      "col.median":        "Médiane",
+      "col.noise":         "Bruit",
+      "col.hotpx":         "Hot px",
+      "col.sat":           "Sat.",
+      "col.state":         "Etat",
+      "files.group":       "Darks",
+      "btn.addFiles":      "+ Darks",
+      "btn.addFiles.tt":   "Ajouter des fichiers FITS",
+      "btn.addDir":        "+ Répertoire",
+      "btn.addDir.tt":     "Ajouter tous les FITS d'un répertoire",
+      "btn.remove":        "- Supprimer",
+      "btn.remove.tt":     "Supprimer les fichiers sélectionnés",
+      "btn.clear":         "Tout vider",
+      "btn.clear.tt":      "Supprimer tous les fichiers",
+      "dlg.selectFiles":   "Sélectionner des darks FITS",
+      "dlg.fitsFilter":    "Fichiers FITS",
+      "dlg.selectDir":     "Sélectionner un répertoire de darks",
+      "params.group":      "Seuils de détection",
+      "temp.group":        "Température",
+      "temp.hint":         "Écart toléré entre température de consigne et température capteur.",
+      "temp.max":          "Écart max (°C) :",
+      "median.group":      "Médiane",
+      "median.hint":       "Détecte les darks dont le signal thermique diffère de la série.",
+      "lbl.sigma":         "Sensibilité (sigma) :",
+      "lbl.warnAdu":       "Alerte (ADU) :",
+      "lbl.critAdu":       "Rejet (ADU) :",
+      "noise.group":       "Bruit",
+      "noise.hint":        "Détecte un bruit de lecture anormal (MAD de l'image).",
+      "hotpx.group":       "Hot pixels",
+      "hotpx.hint":        "Compte les pixels au-dessus du seuil et détecte les écarts.",
+      "hotpx.threshold":   "Seuil (ADU) :",
+      "sat.group":         "Saturation",
+      "sat.hint":          "Nombre max de pixels saturés accepté par dark.",
+      "sat.max":           "Pixels saturés max :",
+      "btn.analyze":       "Analyser",
+      "btn.analyze.tt":    "Lancer l'analyse de tous les darks",
+      "btn.exportCsv":     "Exporter CSV...",
+      "btn.exportCsv.tt":  "Exporter les métriques de la dernière analyse dans un fichier CSV",
+      "btn.exclusions":    "Exclusions WBPP...",
+      "btn.exclusions.tt": "Liste des darks à écarter de l'empilement : export .txt ou déplacement vers un sous-répertoire rejected/",
+      "btn.close":         "Fermer",
+      "msg.noFiles":       "Aucun fichier à analyser.\nAjoutez des fichiers FITS d'abord.",
+      "err.open":          "Impossible d'ouvrir le fichier",
+      "state.valid":       "Valide",
+      "state.warning":     "Alerte",
+      "state.rejected":    "Rejet",
+      "state.error":       "Erreur",
+      "state.err":         "ERR",
+      "tt.noAnomaly":      "Aucune anomalie",
+      "tt.error":          "Erreur : %1",
+      "sum.valid":         "valide(s)",
+      "sum.warn":          "alerte(s)",
+      "sum.crit":          "rejet(s)",
+      "csv.caption":       "Exporter les métriques en CSV",
+      "csv.filter":        "Fichiers CSV",
+      "filter.all":        "Tous les fichiers",
+      "csv.done":          "Métriques exportées :\n%1",
+      "csv.doneLog":       "Métriques exportées : %1",
+      "csv.fail":          "Échec de l'export CSV :\n%1",
+      "excl.none":         "Aucun dark à exclure — série 100% propre.",
+
+      // Analyse + rapport console
+      "run.start":         "Début de l'analyse de %1 darks...",
+      "run.progress":      "Analyse [%1/%2] ",
+      "run.elapsed":       "Analyse individuelle terminée en %1 s",
+      "rep.title":         "ANALYSE DE SERIE DE DARKS",
+      "rep.files":         "Fichiers    : %1 FITS analysés (%2 lus avec succès)",
+      "rep.params":        "Paramètres détectés :",
+      "rep.gain":          "  Gain        : [%1]",
+      "rep.offset":        "  Offset      : [%1]",
+      "rep.expt":          "  Durée       : [%1] s",
+      "rep.settemp":       "  SET-TEMP    : [%1] °C",
+      "rep.multiGain":     "  ATTENTION : plusieurs gains dans la série",
+      "rep.multiOffset":   "  ATTENTION : plusieurs offsets dans la série",
+      "rep.multiExpt":     "  ATTENTION : plusieurs durées dans la série",
+      "rep.tableTitle":    "TABLEAU DES METRIQUES PAR DARK",
+      "rep.colFile":       "Fichier",
+      "rep.colTccd":       "T_ccd",
+      "rep.colMedian":     "Mediane",
+      "rep.colMeanClip":   "MeanClip",
+      "rep.colMad":        "MAD",
+      "rep.colHot":        "Hot>5k",
+      "rep.colSat":        "Sat.",
+      "rep.colState":      "Etat",
+      "rep.error":         " ERREUR : %1",
+      "rep.refsTitle":     "REFERENCES STATISTIQUES DE LA SERIE",
+      "rep.statMetric":    "Metrique",
+      "rep.statMedian":    "Mediane",
+      "rep.statSigma":     "s (MAD)",
+      "rep.statMin":       "Min",
+      "rep.statMax":       "Max",
+      "rep.statRange":     "Etendue",
+      "rep.statClipMed":   "Médiane clippée (ADU)",
+      "rep.statMad":       "MAD robuste (ADU)",
+      "rep.statHot":       "Hot pixels > 5000",
+      "rep.statSat":       "Pixels saturés",
+      "rep.statTemp":      "Température CCD (C)",
+      "rep.alertsTitle":   "ALERTES - DARKS HORS NORME (%1/%2)",
+      "rep.noAnomaly":     "Aucune anomalie détectée. Série homogène et de qualité.",
+      "rep.recoTitle":     "RECOMMANDATIONS",
+      "rep.critList":      "%1 dark(s) critique(s) à exclure absolument de l'empilement :",
+      "rep.warnList":      "%1 dark(s) à examiner (potentiellement à exclure) :",
+      "rep.warnAdvice":    "   -> Ces darks seront probablement bien gérés par une réjection\n      Winsorized Sigma 3.0/4.0 dans WBPP, mais tu peux les exclure\n      manuellement pour plus de propreté.",
+      "rep.clean":         "Série 100% homogène — prête pour empilement sans exclusion.",
+      "rep.stackTitle":    "Pour l'empilement :",
+      "rep.stackTotal":    "  - %1 darks utilisables au total",
+      "rep.stackClean":    "  - %1 darks totalement propres",
+      "rep.stackReco":     "  - Recommandation : Winsorized Sigma Clipping 3.0/4.0 dans WBPP",
+      "rep.stackNorm":     "  - Normalization : No normalization",
+      "rep.stackOut":      "  - Output : float32 FITS ou XISF",
+      "rep.done":          "Analyse terminée — %1 fichiers traités",
+
+      // Alertes de détection
+      "flag.readError":    "erreur lecture : %1",
+      "flag.medianCrit":   "médiane très décalée (%1 vs ref %2, d=%3 ADU)",
+      "flag.medianWarn":   "médiane décalée (%1 vs ref %2, d=%3 ADU%4)",
+      "flag.medianStat":   "médiane statistiquement décalée (%1 vs ref %2, %3s)",
+      "flag.noiseWarn":    "bruit anormal (MAD=%1 vs ref %2, d=%3 ADU%4)",
+      "flag.noiseStat":    "bruit anormal (MAD=%1 vs ref %2, %3s)",
+      "flag.hotpx":        "hot pixels inhabituel(s) (%1 vs ref %2, %3s)",
+      "flag.tempDrift":    "dérive thermique (%1 °C)",
+      "flag.saturation":   "saturation massive (%1 pixels)",
+      "flag.sigmaSuffix":  ", %1s",
+
+      // Fenêtre d'exclusions WBPP
+      "excl.title":        "Exclusions WBPP",
+      "excl.help":         "Liste des darks à écarter de l'empilement. Copiez-la, exportez-la en .txt, ou déplacez les fichiers dans un sous-répertoire 'rejected' pour que WBPP ne les voie plus.",
+      "excl.inclWarn":     "Inclure les alertes (par défaut : rejets seuls)",
+      "excl.inclWarn.tt":  "Les rejets (critiques) sont toujours listés. Cochez pour ajouter les darks en alerte (warning).",
+      "excl.count":        "%1 fichier(s) à exclure",
+      "excl.movedCount":   " — %1 déjà déplacé(s)",
+      "excl.exportTxt":    "Exporter .txt...",
+      "excl.exportTxt.tt": "Écrire la liste (un chemin par ligne) dans un fichier texte",
+      "excl.move":         "Déplacer vers rejected/...",
+      "excl.move.tt":      "Déplacer les fichiers listés dans un sous-répertoire 'rejected' à côté des darks (avec confirmation)",
+      "excl.exportCaption": "Exporter la liste d'exclusion",
+      "txt.filter":        "Fichiers texte",
+      "excl.exportDone":   "Liste d'exclusion exportée :\n%1",
+      "excl.exportDoneLog": "Liste d'exclusion exportée : %1",
+      "excl.exportFail":   "Échec de l'export :\n%1",
+      "excl.confirmMove":  "Déplacer %1 fichier(s) vers un sous-répertoire 'rejected' (créé à côté des darks) ?\n\nLes fichiers déplacés seront retirés de la liste d'analyse.",
+      "excl.exists":       "un fichier du même nom existe déjà dans rejected/",
+      "excl.movedLog":     "Déplacé : %1 -> %2",
+      "excl.moveReport":   "%1 fichier(s) déplacé(s) vers rejected/",
+      "excl.moveFailures": "\n\nÉchecs (%1) :\n%2"
+   }
+};
+
+// Language codes/names in ComboBox item order
+var LANG_CODES = ["en", "fr"];
+var LANG_NAMES = ["English", "Français"];
+
+var gLanguage = "en";  // default; overridden by the saved setting
+
+function loadLanguageSetting()
+{
+   var lang = Settings.read(SETTINGS_KEY_BASE + "/language", DataType_String);
+   if (Settings.lastReadOK && lang && STRINGS[lang] !== undefined)
+      gLanguage = lang;
+}
+
+function saveLanguageSetting()
+{
+   Settings.write(SETTINGS_KEY_BASE + "/language", DataType_String, gLanguage);
+}
+
+function tr(key)
+{
+   var table = STRINGS[gLanguage];
+   var s = (table && table[key] !== undefined) ? table[key] : STRINGS.en[key];
+   if (s === undefined) return key;
+   // split/join instead of replace(): replaces every occurrence and is
+   // immune to '$' patterns in the substituted values
+   for (var i = 1; i < arguments.length; ++i)
+      s = s.split("%" + i).join(String(arguments[i]));
+   return s;
+}
+
+
+// ============================================================================
+// HELPERS — STATISTICS ON JS ARRAYS
 // ============================================================================
 
 function arrayMedian(arr)
@@ -61,7 +416,7 @@ function arrayMedian(arr)
 
 function arrayMAD(arr)
 {
-   // MAD normalise x1.4826 (sigma-equivalent, comme mad_std d'astropy)
+   // MAD normalized x1.4826 (sigma-equivalent, like astropy's mad_std)
    var med = arrayMedian(arr);
    var deviations = [];
    for (var i = 0; i < arr.length; ++i)
@@ -128,13 +483,13 @@ function truncateFilename(name, maxLen)
 
 
 // ============================================================================
-// LECTURE DES KEYWORDS FITS
+// FITS KEYWORD READING
 // ============================================================================
 
 function readFITSKeywordsFromWindow(window)
 {
-   // Lit les keywords FITS directement depuis l'ImageWindow ouverte
-   // (PI les extrait deja lors de l'ouverture du fichier)
+   // Reads FITS keywords straight from the open ImageWindow
+   // (PI already extracts them when opening the file)
    var result = {
       gain: null,
       offset: null,
@@ -152,7 +507,7 @@ function readFITSKeywordsFromWindow(window)
       for (var i = 0; i < keywords.length; ++i) {
          var kw = keywords[i];
          var name = kw.name.trim();
-         // strippedValue retire les quotes des valeurs FITS string
+         // strippedValue removes the quotes of FITS string values
          var val = kw.strippedValue.trim();
 
          switch (name) {
@@ -170,7 +525,7 @@ function readFITSKeywordsFromWindow(window)
       }
    }
    catch (e) {
-      console.warningln("Erreur lecture keywords: " + e.message);
+      console.warningln("Error reading keywords: " + e.message);
    }
 
    return result;
@@ -178,7 +533,7 @@ function readFITSKeywordsFromWindow(window)
 
 
 // ============================================================================
-// ANALYSE D'UN DARK INDIVIDUEL
+// SINGLE DARK FRAME ANALYSIS
 // ============================================================================
 
 function analyzeSingleDark(filePath, params)
@@ -221,7 +576,7 @@ function analyzeSingleDark(filePath, params)
       severity: "ok"
    };
 
-   // Ouvrir l'image
+   // Open the image
    var windows;
    try {
       windows = ImageWindow.open(filePath);
@@ -232,14 +587,14 @@ function analyzeSingleDark(filePath, params)
    }
 
    if (windows.length === 0) {
-      metrics.error = "Impossible d'ouvrir le fichier";
+      metrics.error = tr("err.open");
       return metrics;
    }
 
    var window = windows[0];
    var image = window.mainView.image;
 
-   // Lire les keywords FITS depuis la window ouverte
+   // Read the FITS keywords from the open window
    var kw = readFITSKeywordsFromWindow(window);
    metrics.gain = kw.gain;
    metrics.offset = kw.offset;
@@ -256,12 +611,12 @@ function analyzeSingleDark(filePath, params)
       metrics.width = image.width;
       metrics.height = image.height;
 
-      // Si image multi-canal (CFA debayerisee ?), utiliser channel 0
+      // Multi-channel image (debayered CFA?): use channel 0
       if (image.numberOfChannels > 1)
          image.selectedChannel = 0;
 
-      // --- Statistiques de base (via le moteur C++ de PI) ---
-      // Toutes les valeurs PI sont en [0,1], on convertit en ADU x65535
+      // --- Basic statistics (through PI's C++ engine) ---
+      // All PI values are in [0,1]; converted to ADU x65535
 
       metrics.min = image.minimum() * SCALE;
       metrics.max = image.maximum() * SCALE;
@@ -269,16 +624,16 @@ function analyzeSingleDark(filePath, params)
       metrics.median = image.median() * SCALE;
       metrics.stdDev = image.stdDev() * SCALE;
 
-      // --- MAD robuste via avgDev ---
-      // Pour une distribution gaussienne :
+      // --- Robust MAD through avgDev ---
+      // For a Gaussian distribution:
       //   avgDev = sigma * sqrt(2/pi) = sigma * 0.7979
       //   mad_std (sigma-equivalent) = sigma
-      // Donc: mad_std = avgDev / 0.7979 = avgDev * 1.2533
+      // Hence: mad_std = avgDev / 0.7979 = avgDev * 1.2533
       metrics.mad = image.avgDev() * SCALE * 1.2533;
 
-      // --- Stats clippees (2 passes) ---
-      // 1) On a deja median et MAD
-      // 2) On clippe a median +/- 3*MAD_sigma et on recalcule mean/stdDev
+      // --- Clipped statistics (2 passes) ---
+      // 1) median and MAD are already known
+      // 2) clip at median +/- 3*MAD_sigma and recompute mean/stdDev
       var clipLow = (metrics.median - 3.0 * metrics.mad) / SCALE;
       var clipHigh = (metrics.median + 3.0 * metrics.mad) / SCALE;
       if (clipLow < 0) clipLow = 0;
@@ -292,12 +647,12 @@ function analyzeSingleDark(filePath, params)
       metrics.medianClip = image.median() * SCALE;
       metrics.stdClip = image.stdDev() * SCALE;
 
-      // Desactiver le clipping pour les stats suivantes
+      // Disable clipping for the next statistics
       image.rangeClippingEnabled = false;
 
-      // --- Comptage de hot pixels via histogramme ---
-      // On construit un histogramme 16-bit (65536 bins) en une seule passe C++,
-      // puis on somme les bins au-dessus de chaque seuil en JS (instantane)
+      // --- Hot pixel counting through the histogram ---
+      // Build a 16-bit histogram (65536 bins) in a single C++ pass, then
+      // sum the bins above each threshold in JS (instantaneous)
       var histogram = computeHistogramCounts(image);
 
       metrics.nHot1k = sumBinsAbove(histogram, 1000);
@@ -306,23 +661,23 @@ function analyzeSingleDark(filePath, params)
       metrics.nSaturated = sumBinsAbove(histogram, 65500);
       metrics.nZero = histogram[0];
 
-      // --- Ecart de temperature ---
+      // --- Temperature deviation ---
       if (metrics.setTemp !== null && metrics.ccdTemp !== null) {
          metrics.tempDeviation = Math.abs(metrics.ccdTemp - metrics.setTemp);
       }
 
-      // --- Uniformite spatiale (centre + 4 coins) ---
+      // --- Spatial uniformity (center + 4 corners) ---
       var ps = params.patchSize;
       var h = image.height;
       var w = image.width;
 
       if (h > ps * 2 && w > ps * 2) {
-         // Centre
+         // Center
          var cx = Math.floor(w / 2 - ps / 2);
          var cy = Math.floor(h / 2 - ps / 2);
          var centreMedian = patchMedian(image, cx, cy, ps, ps);
 
-         // 4 coins
+         // 4 corners
          var corners = [
             patchMedian(image, 0, 0, ps, ps),
             patchMedian(image, w - ps, 0, ps, ps),
@@ -340,7 +695,7 @@ function analyzeSingleDark(filePath, params)
       metrics.error = e.message;
    }
 
-   // Fermer l'image immediatement pour liberer la memoire
+   // Close the image immediately to free memory
    window.forceClose();
 
    return metrics;
@@ -348,13 +703,13 @@ function analyzeSingleDark(filePath, params)
 
 
 // ============================================================================
-// HELPERS STATISTIQUES IMAGE
+// IMAGE STATISTICS HELPERS
 // ============================================================================
 
 function computeHistogramCounts(image)
 {
-   // Construit un histogramme 16-bit (65536 bins) via la classe Histogram de PJSR
-   // Retourne un tableau JS ou index = valeur ADU, valeur = nombre de pixels
+   // Builds a 16-bit histogram (65536 bins) through PJSR's Histogram class.
+   // Returns a JS array where index = ADU value, value = pixel count
    var resolution = 65536;
    var counts = new Array(resolution);
    for (var i = 0; i < resolution; ++i) counts[i] = 0;
@@ -366,26 +721,23 @@ function computeHistogramCounts(image)
          counts[i] = H.count(i);
    }
    catch (e) {
-      // Fallback: utiliser l'histogramme 16-bit de l'image
-      // Si la classe Histogram n'est pas disponible sous cette forme,
-      // on essaie via image.histogramLevel()
-      console.warningln("Histogram API: " + e.message + " - tentative fallback...");
+      // Fallback: rebuild the histogram manually, pixel by pixel, if the
+      // Histogram class is not available in this form
+      console.warningln("Histogram API: " + e.message + " - trying fallback...");
       try {
-         // Approche alternative: lire le nombre de bins via ImageStatistics
-         // et reconstituer manuellement
          for (var y = 0; y < image.height; ++y) {
             for (var x = 0; x < image.width; ++x) {
                var val = Math.round(image.sample(x, y) * 65535);
                if (val >= 0 && val < resolution)
                   counts[val]++;
             }
-            // Afficher la progression tous les 100 lignes
+            // Keep the UI alive every few hundred rows
             if (y % 500 === 0)
                processEvents();
          }
       }
       catch (e2) {
-         console.warningln("Fallback histogram échoué: " + e2.message);
+         console.warningln("Histogram fallback failed: " + e2.message);
       }
    }
 
@@ -410,12 +762,12 @@ function patchMedian(image, x0, y0, w, h)
 
 
 // ============================================================================
-// DETECTION D'OUTLIERS
+// OUTLIER DETECTION
 // ============================================================================
 
 function detectOutliers(allMetrics, params)
 {
-   // Filtrer les metriques valides
+   // Keep only valid metrics
    var valid = [];
    for (var i = 0; i < allMetrics.length; ++i) {
       if (allMetrics[i].error === null)
@@ -423,7 +775,7 @@ function detectOutliers(allMetrics, params)
    }
 
    if (valid.length < 3) {
-      // Pas assez de donnees pour une detection statistique
+      // Not enough data for a statistical detection
       for (var i = 0; i < allMetrics.length; ++i) {
          allMetrics[i].flags = [];
          allMetrics[i].severity = (allMetrics[i].error === null) ? "ok" : "critical";
@@ -431,7 +783,7 @@ function detectOutliers(allMetrics, params)
       return { metrics: allMetrics, refs: null };
    }
 
-   // References de la serie
+   // Series references
    var medians = [], mads = [], hotpx = [];
    for (var i = 0; i < valid.length; ++i) {
       medians.push(valid[i].medianClip);
@@ -446,86 +798,83 @@ function detectOutliers(allMetrics, params)
    var refHotpx = arrayMedian(hotpx);
    var refHotpxMad = arrayMAD(hotpx);
 
-   // Planchers anti-quantification (fallback si dispersion ~0)
+   // Anti-quantization floors (fallback when dispersion is ~0)
    var effectiveMedianDisp = Math.max(refMedianMad, 1.0);
    var effectiveMadDisp = Math.max(refMadMad, 0.5);
    var effectiveHotpxDisp = Math.max(refHotpxMad, refHotpx * 0.003, 1.0);
 
-   // Flagger chaque dark
+   // Flag each dark
    for (var i = 0; i < allMetrics.length; ++i) {
       var m = allMetrics[i];
       var flags = [];
       var severity = "ok";
 
       if (m.error !== null) {
-         flags.push("erreur lecture: " + m.error);
+         flags.push(tr("flag.readError", m.error));
          severity = "critical";
          m.flags = flags;
          m.severity = severity;
          continue;
       }
 
-      // --- Check mediane (signal thermique) ---
+      // --- Median check (thermal signal) ---
       var medianAbsDev = Math.abs(m.medianClip - refMedian);
       var zMedian = medianAbsDev / effectiveMedianDisp;
       var zMedianMeaningful = refMedianMad > 0.5;
 
       if (medianAbsDev > params.medianAbsDeviationCrit) {
-         flags.push("médiane très décalée (" + m.medianClip.toFixed(1) +
-            " vs ref " + refMedian.toFixed(1) +
-            ", d=" + medianAbsDev.toFixed(0) + " ADU)");
+         flags.push(tr("flag.medianCrit", m.medianClip.toFixed(1),
+            refMedian.toFixed(1), medianAbsDev.toFixed(0)));
          severity = "critical";
       }
       else if (medianAbsDev > params.medianAbsDeviationWarn) {
-         var detail = m.medianClip.toFixed(1) + " vs ref " + refMedian.toFixed(1) +
-            ", d=" + medianAbsDev.toFixed(0) + " ADU";
-         if (zMedianMeaningful)
-            detail += ", " + zMedian.toFixed(1) + "s";
-         flags.push("médiane décalée (" + detail + ")");
+         var sigmaSuffix = zMedianMeaningful ?
+            tr("flag.sigmaSuffix", zMedian.toFixed(1)) : "";
+         flags.push(tr("flag.medianWarn", m.medianClip.toFixed(1),
+            refMedian.toFixed(1), medianAbsDev.toFixed(0), sigmaSuffix));
          if (severity !== "critical") severity = "warning";
       }
       else if (zMedian > params.outlierSigmaMedian && zMedianMeaningful) {
-         flags.push("médiane statistiquement décalée (" + m.medianClip.toFixed(1) +
-            " vs ref " + refMedian.toFixed(1) + ", " + zMedian.toFixed(1) + "s)");
+         flags.push(tr("flag.medianStat", m.medianClip.toFixed(1),
+            refMedian.toFixed(1), zMedian.toFixed(1)));
          if (severity !== "critical") severity = "warning";
       }
 
-      // --- Check MAD (bruit anormal) ---
+      // --- MAD check (abnormal noise) ---
       var madAbsDev = Math.abs(m.mad - refMad);
       var zMad = madAbsDev / effectiveMadDisp;
       var zMadMeaningful = refMadMad > 0.5;
 
       if (madAbsDev > params.madAbsDeviationWarn) {
-         var detail = "MAD=" + m.mad.toFixed(1) + " vs ref " + refMad.toFixed(1) +
-            ", d=" + madAbsDev.toFixed(1) + " ADU";
-         if (zMadMeaningful)
-            detail += ", " + zMad.toFixed(1) + "s";
-         flags.push("bruit anormal (" + detail + ")");
+         var sigmaSuffix2 = zMadMeaningful ?
+            tr("flag.sigmaSuffix", zMad.toFixed(1)) : "";
+         flags.push(tr("flag.noiseWarn", m.mad.toFixed(1),
+            refMad.toFixed(1), madAbsDev.toFixed(1), sigmaSuffix2));
          if (severity !== "critical") severity = "warning";
       }
       else if (zMad > params.outlierSigmaMad && zMadMeaningful) {
-         flags.push("bruit anormal (MAD=" + m.mad.toFixed(1) +
-            " vs ref " + refMad.toFixed(1) + ", " + zMad.toFixed(1) + "s)");
+         flags.push(tr("flag.noiseStat", m.mad.toFixed(1),
+            refMad.toFixed(1), zMad.toFixed(1)));
          if (severity !== "critical") severity = "warning";
       }
 
-      // --- Check hot pixels ---
+      // --- Hot pixel check ---
       var zHotpx = Math.abs(m.nHot5k - refHotpx) / effectiveHotpxDisp;
       if (zHotpx > params.outlierSigmaHotpx) {
-         flags.push("hot pixels inhabituel(s) (" + m.nHot5k +
-            " vs ref " + Math.round(refHotpx) + ", " + zHotpx.toFixed(1) + "s)");
+         flags.push(tr("flag.hotpx", m.nHot5k, Math.round(refHotpx),
+            zHotpx.toFixed(1)));
          if (severity !== "critical") severity = "warning";
       }
 
-      // --- Check temperature ---
+      // --- Temperature check ---
       if (m.tempDeviation !== null && m.tempDeviation > params.tempDeviationMax) {
-         flags.push("dérive thermique (" + m.tempDeviation.toFixed(2) + " °C)");
+         flags.push(tr("flag.tempDrift", m.tempDeviation.toFixed(2)));
          severity = "critical";
       }
 
-      // --- Check saturation massive ---
+      // --- Massive saturation check ---
       if (m.nSaturated > params.saturatedPixelsMax) {
-         flags.push("saturation massive (" + m.nSaturated + " pixels)");
+         flags.push(tr("flag.saturation", m.nSaturated));
          severity = "critical";
       }
 
@@ -547,7 +896,7 @@ function detectOutliers(allMetrics, params)
 
 
 // ============================================================================
-// RAPPORT CONSOLE
+// CONSOLE REPORT
 // ============================================================================
 
 function generateConsoleReport(allMetrics, refs, params)
@@ -563,12 +912,12 @@ function generateConsoleReport(allMetrics, refs, params)
    // --- Header ---
    console.writeln("");
    console.writeln(sep);
-   console.writeln("ANALYSE DE SERIE DE DARKS");
+   console.writeln(tr("rep.title"));
    console.writeln(sep);
-   console.writeln("Fichiers    : " + allMetrics.length + " FITS analysés (" + valid.length + " lus avec succès)");
+   console.writeln(tr("rep.files", allMetrics.length, valid.length));
 
    if (valid.length > 0) {
-      // Coherence de la serie
+      // Series consistency
       var gains = [], offsets = [], exptimes = [], temps = [];
       for (var i = 0; i < valid.length; ++i) {
          if (valid[i].gain !== null) gains.push(valid[i].gain);
@@ -578,40 +927,40 @@ function generateConsoleReport(allMetrics, refs, params)
       }
 
       console.writeln("");
-      console.writeln("Paramètres détectés :");
-      console.writeln("  Gain        : [" + uniqueValues(gains).join(", ") + "]");
-      console.writeln("  Offset      : [" + uniqueValues(offsets).join(", ") + "]");
-      console.writeln("  Durée       : [" + uniqueValues(exptimes).join(", ") + "] s");
-      console.writeln("  SET-TEMP    : [" + uniqueValues(temps).join(", ") + "] °C");
+      console.writeln(tr("rep.params"));
+      console.writeln(tr("rep.gain", uniqueValues(gains).join(", ")));
+      console.writeln(tr("rep.offset", uniqueValues(offsets).join(", ")));
+      console.writeln(tr("rep.expt", uniqueValues(exptimes).join(", ")));
+      console.writeln(tr("rep.settemp", uniqueValues(temps).join(", ")));
 
       if (uniqueValues(gains).length > 1)
-         console.warningln("  ATTENTION: plusieurs gains dans la serie");
+         console.warningln(tr("rep.multiGain"));
       if (uniqueValues(offsets).length > 1)
-         console.warningln("  ATTENTION: plusieurs offsets dans la serie");
+         console.warningln(tr("rep.multiOffset"));
       if (uniqueValues(exptimes).length > 1)
-         console.warningln("  ATTENTION: plusieurs durees dans la serie");
+         console.warningln(tr("rep.multiExpt"));
    }
 
-   // --- Tableau principal ---
+   // --- Main table ---
    console.writeln("");
    console.writeln(sep);
-   console.writeln("TABLEAU DES METRIQUES PAR DARK");
+   console.writeln(tr("rep.tableTitle"));
    console.writeln(sep);
 
    console.writeln(
       padRight("#", 4) +
-      padRight("Fichier", 35) +
-      padRight("T_ccd", 7) +
-      padRight("Mediane", 9) +
-      padRight("MeanClip", 10) +
-      padRight("MAD", 7) +
-      padRight("Hot>5k", 8) +
-      padRight("Sat.", 6) +
-      padRight("Etat", 10)
+      padRight(tr("rep.colFile"), 35) +
+      padRight(tr("rep.colTccd"), 7) +
+      padRight(tr("rep.colMedian"), 9) +
+      padRight(tr("rep.colMeanClip"), 10) +
+      padRight(tr("rep.colMad"), 7) +
+      padRight(tr("rep.colHot"), 8) +
+      padRight(tr("rep.colSat"), 6) +
+      padRight(tr("rep.colState"), 10)
    );
    console.writeln(sep2);
 
-   // Tri par date
+   // Sort by observation date
    var sorted = allMetrics.slice().sort(function(a, b) {
       var da = a.dateObs || "";
       var db = b.dateObs || "";
@@ -624,7 +973,7 @@ function generateConsoleReport(allMetrics, refs, params)
       var fname = padRight(truncateFilename(m.filename, 34), 35);
 
       if (m.error !== null) {
-         console.writeln(num + fname + " ERREUR: " + m.error);
+         console.writeln(num + fname + tr("rep.error", m.error));
          continue;
       }
 
@@ -645,29 +994,29 @@ function generateConsoleReport(allMetrics, refs, params)
       );
    }
 
-   // --- Statistiques de reference ---
+   // --- Reference statistics ---
    if (refs !== null) {
       console.writeln("");
       console.writeln(sep);
-      console.writeln("REFERENCES STATISTIQUES DE LA SERIE");
+      console.writeln(tr("rep.refsTitle"));
       console.writeln(sep);
 
       console.writeln("");
       console.writeln(
-         padRight("Metrique", 25) +
-         padLeft("Mediane", 12) +
-         padLeft("s (MAD)", 10) +
-         padLeft("Min", 10) +
-         padLeft("Max", 10) +
-         padLeft("Etendue", 10)
+         padRight(tr("rep.statMetric"), 25) +
+         padLeft(tr("rep.statMedian"), 12) +
+         padLeft(tr("rep.statSigma"), 10) +
+         padLeft(tr("rep.statMin"), 10) +
+         padLeft(tr("rep.statMax"), 10) +
+         padLeft(tr("rep.statRange"), 10)
       );
       console.writeln(sep2.substring(0, 77));
 
       var statRows = [
-         { name: "Médiane clippée (ADU)", vals: [] },
-         { name: "MAD robuste (ADU)", vals: [] },
-         { name: "Hot pixels > 5000", vals: [] },
-         { name: "Pixels saturés", vals: [] }
+         { name: tr("rep.statClipMed"), vals: [] },
+         { name: tr("rep.statMad"), vals: [] },
+         { name: tr("rep.statHot"), vals: [] },
+         { name: tr("rep.statSat"), vals: [] }
       ];
 
       for (var i = 0; i < valid.length; ++i) {
@@ -696,7 +1045,7 @@ function generateConsoleReport(allMetrics, refs, params)
       }
       if (tempsCcd.length > 0) {
          console.writeln(
-            padRight("Température CCD (C)", 25) +
+            padRight(tr("rep.statTemp"), 25) +
             padLeft(arrayMedian(tempsCcd).toFixed(2), 12) +
             padLeft(arrayMAD(tempsCcd).toFixed(3), 10) +
             padLeft(arrayMin(tempsCcd).toFixed(2), 10) +
@@ -706,7 +1055,7 @@ function generateConsoleReport(allMetrics, refs, params)
       }
    }
 
-   // --- Alertes ---
+   // --- Alerts ---
    var flagged = [];
    for (var i = 0; i < allMetrics.length; ++i) {
       if (allMetrics[i].flags && allMetrics[i].flags.length > 0 && allMetrics[i].severity !== "ok")
@@ -715,15 +1064,15 @@ function generateConsoleReport(allMetrics, refs, params)
 
    console.writeln("");
    console.writeln(sep);
-   console.writeln("ALERTES - DARKS HORS NORME (" + flagged.length + "/" + allMetrics.length + ")");
+   console.writeln(tr("rep.alertsTitle", flagged.length, allMetrics.length));
    console.writeln(sep);
 
    if (flagged.length === 0) {
       console.writeln("");
-      console.writeln("Aucune anomalie détectée. Série homogène et de qualité.");
+      console.writeln(tr("rep.noAnomaly"));
    }
    else {
-      // Trier par severite (critical en premier)
+      // Sort by severity (critical first)
       flagged.sort(function(a, b) {
          var sa = a.severity === "critical" ? 0 : 1;
          var sb = b.severity === "critical" ? 0 : 1;
@@ -747,10 +1096,10 @@ function generateConsoleReport(allMetrics, refs, params)
       }
    }
 
-   // --- Recommandations ---
+   // --- Recommendations ---
    console.writeln("");
    console.writeln(sep);
-   console.writeln("RECOMMANDATIONS");
+   console.writeln(tr("rep.recoTitle"));
    console.writeln(sep);
 
    var warnings = [];
@@ -762,25 +1111,23 @@ function generateConsoleReport(allMetrics, refs, params)
 
    if (criticals.length > 0) {
       console.warningln("");
-      console.warningln(criticals.length + " dark(s) critique(s) à exclure absolument de l'empilement :");
+      console.warningln(tr("rep.critList", criticals.length));
       for (var i = 0; i < criticals.length; ++i)
          console.warningln("   - " + criticals[i].filename);
    }
 
    if (warnings.length > 0) {
       console.writeln("");
-      console.writeln(warnings.length + " dark(s) à examiner (potentiellement à exclure) :");
+      console.writeln(tr("rep.warnList", warnings.length));
       for (var i = 0; i < warnings.length; ++i)
          console.writeln("   - " + warnings[i].filename);
       console.writeln("");
-      console.writeln("   -> Ces darks seront probablement bien gérés par une réjection");
-      console.writeln("      Winsorized Sigma 3.0/4.0 dans WBPP, mais tu peux les exclure");
-      console.writeln("      manuellement pour plus de propreté.");
+      console.writeln(tr("rep.warnAdvice"));
    }
 
    if (warnings.length === 0 && criticals.length === 0) {
       console.writeln("");
-      console.writeln("Série 100% homogène — prête pour empilement sans exclusion.");
+      console.writeln(tr("rep.clean"));
    }
 
    var cleanCount = 0;
@@ -789,16 +1136,16 @@ function generateConsoleReport(allMetrics, refs, params)
    }
 
    console.writeln("");
-   console.writeln("Pour l'empilement:");
-   console.writeln("  - " + valid.length + " darks utilisables au total");
-   console.writeln("  - " + cleanCount + " darks totalement propres");
-   console.writeln("  - Recommandation: Winsorized Sigma Clipping 3.0/4.0 dans WBPP");
-   console.writeln("  - Normalization: No normalization");
-   console.writeln("  - Output: float32 FITS ou XISF");
+   console.writeln(tr("rep.stackTitle"));
+   console.writeln(tr("rep.stackTotal", valid.length));
+   console.writeln(tr("rep.stackClean", cleanCount));
+   console.writeln(tr("rep.stackReco"));
+   console.writeln(tr("rep.stackNorm"));
+   console.writeln(tr("rep.stackOut"));
 
    console.writeln("");
    console.writeln(sep);
-   console.writeln("Analyse terminée — " + allMetrics.length + " fichiers traités");
+   console.writeln(tr("rep.done", allMetrics.length));
    console.writeln(sep);
 }
 
@@ -811,8 +1158,8 @@ var CSV_SEP = ";";
 
 function csvField(val)
 {
-   // Champ texte : vide si absent, quote si le contenu contient
-   // le separateur, des quotes ou un retour ligne
+   // Text field: empty when absent, quoted when the content contains
+   // the separator, quotes or a line break
    if (val === null || val === undefined) return "";
    var s = String(val);
    if (s.indexOf(CSV_SEP) >= 0 || s.indexOf('"') >= 0 || s.indexOf("\n") >= 0)
@@ -822,7 +1169,7 @@ function csvField(val)
 
 function csvNum(val, decimals)
 {
-   // Champ numerique : vide si absent, decimales avec point
+   // Numeric field: empty when absent, decimal point notation
    if (val === null || val === undefined) return "";
    if (decimals === 0) return String(Math.round(val));
    return val.toFixed(decimals);
@@ -830,22 +1177,24 @@ function csvNum(val, decimals)
 
 function buildCsv(allMetrics)
 {
+   // Header names are fixed English regardless of the UI language:
+   // machine-readable output stays stable for downstream tooling
    var header = [
-      "fichier", "chemin", "date_obs", "type_image",
+      "file", "path", "date_obs", "image_type",
       "gain", "offset", "exptime_s",
-      "set_temp_c", "ccd_temp_c", "derive_temp_c",
+      "set_temp_c", "ccd_temp_c", "temp_drift_c",
       "readout_mode", "bayer",
-      "largeur", "hauteur",
-      "min_adu", "max_adu", "moyenne_adu", "mediane_adu", "ecart_type_adu",
-      "mad_adu", "moyenne_clip_adu", "mediane_clip_adu", "ecart_type_clip_adu",
-      "hot_1k", "hot_5k", "hot_10k", "satures", "zeros",
-      "mediane_centre_adu", "delta_coins_adu",
-      "etat", "alertes", "erreur"
+      "width", "height",
+      "min_adu", "max_adu", "mean_adu", "median_adu", "stddev_adu",
+      "mad_adu", "mean_clip_adu", "median_clip_adu", "stddev_clip_adu",
+      "hot_1k", "hot_5k", "hot_10k", "saturated", "zeros",
+      "center_median_adu", "corner_delta_adu",
+      "status", "flags", "error"
    ];
 
    var lines = [header.join(CSV_SEP)];
 
-   // Meme ordre que le rapport console : tri par date d'observation
+   // Same order as the console report: sorted by observation date
    var sorted = allMetrics.slice().sort(function(a, b) {
       var da = a.dateObs || "";
       var db = b.dateObs || "";
@@ -897,7 +1246,7 @@ function buildCsv(allMetrics)
 
 function writeTextFileCompat(path, text)
 {
-   // File.writeTextFile n'existe pas sur les vieilles versions de PI
+   // File.writeTextFile does not exist in old PI versions
    if (typeof File.writeTextFile === "function") {
       File.writeTextFile(path, text);
       return;
@@ -910,7 +1259,7 @@ function writeTextFileCompat(path, text)
 
 
 // ============================================================================
-// DIALOG LISTE D'EXCLUSION WBPP
+// WBPP EXCLUSION LIST DIALOG
 // ============================================================================
 
 function ExclusionDialog(parentDialog, allMetrics)
@@ -922,21 +1271,18 @@ function ExclusionDialog(parentDialog, allMetrics)
 
    this.parentDialog = parentDialog;
    this.allMetrics = allMetrics;
-   this.movedPaths = [];        // fichiers deja deplaces vers rejected/
+   this.movedPaths = [];        // files already moved to rejected/
    this.includeWarnings = false;
 
    this.helpLabel = new Label(this);
-   this.helpLabel.text = "Liste des darks à écarter de l'empilement. " +
-      "Copiez-la, exportez-la en .txt, ou déplacez les fichiers dans un " +
-      "sous-répertoire 'rejected' pour que WBPP ne les voie plus.";
+   this.helpLabel.text = tr("excl.help");
    this.helpLabel.wordWrapping = true;
    this.helpLabel.useRichText = false;
 
    this.includeWarningsCheck = new CheckBox(this);
-   this.includeWarningsCheck.text = "Inclure les alertes (par défaut : rejets seuls)";
+   this.includeWarningsCheck.text = tr("excl.inclWarn");
    this.includeWarningsCheck.checked = false;
-   this.includeWarningsCheck.toolTip = "Les rejets (critiques) sont toujours listés. " +
-      "Cochez pour ajouter les darks en alerte (warning).";
+   this.includeWarningsCheck.toolTip = tr("excl.inclWarn.tt");
    this.includeWarningsCheck.onCheck = function(checked)
    {
       self.includeWarnings = checked;
@@ -951,20 +1297,19 @@ function ExclusionDialog(parentDialog, allMetrics)
    this.countLabel.text = "";
 
    this.exportTxtButton = new PushButton(this);
-   this.exportTxtButton.text = "Exporter .txt...";
+   this.exportTxtButton.text = tr("excl.exportTxt");
    this.exportTxtButton.icon = this.scaledResource(":/icons/document-text-export.png");
-   this.exportTxtButton.toolTip = "Écrire la liste (un chemin par ligne) dans un fichier texte";
+   this.exportTxtButton.toolTip = tr("excl.exportTxt.tt");
    this.exportTxtButton.onClick = function() { self.exportTxt(); };
 
    this.moveButton = new PushButton(this);
-   this.moveButton.text = "Déplacer vers rejected/...";
+   this.moveButton.text = tr("excl.move");
    this.moveButton.icon = this.scaledResource(":/icons/folder.png");
-   this.moveButton.toolTip = "Déplacer les fichiers listés dans un sous-répertoire " +
-      "'rejected' à côté des darks (avec confirmation)";
+   this.moveButton.toolTip = tr("excl.move.tt");
    this.moveButton.onClick = function() { self.moveToRejected(); };
 
    this.closeButton = new PushButton(this);
-   this.closeButton.text = "Fermer";
+   this.closeButton.text = tr("btn.close");
    this.closeButton.icon = this.scaledResource(":/icons/close.png");
    this.closeButton.onClick = function() { self.ok(); };
 
@@ -984,7 +1329,7 @@ function ExclusionDialog(parentDialog, allMetrics)
    this.sizer.add(this.countLabel);
    this.sizer.add(this.buttonsSizer);
 
-   this.windowTitle = TITLE + " — Exclusions WBPP";
+   this.windowTitle = TITLE + " — " + tr("excl.title");
    this.adjustToContents();
 
    this.refreshList();
@@ -994,8 +1339,8 @@ ExclusionDialog.prototype = new Dialog();
 
 ExclusionDialog.prototype.excludedMetrics = function()
 {
-   // Rejets (critiques + erreurs de lecture) toujours, alertes sur option.
-   // Les fichiers deja deplaces ne sont plus listes.
+   // Rejected darks (criticals + read errors) always, warnings on option.
+   // Files already moved are no longer listed.
    var list = [];
    for (var i = 0; i < this.allMetrics.length; ++i) {
       var m = this.allMetrics[i];
@@ -1016,9 +1361,9 @@ ExclusionDialog.prototype.refreshList = function()
       paths.push(list[i].filepath);
 
    this.listTextBox.text = paths.join("\n");
-   this.countLabel.text = list.length + " fichier(s) à exclure" +
+   this.countLabel.text = tr("excl.count", list.length) +
       (this.movedPaths.length > 0 ?
-         " — " + this.movedPaths.length + " déjà déplacé(s)" : "");
+         tr("excl.movedCount", this.movedPaths.length) : "");
 
    this.exportTxtButton.enabled = list.length > 0;
    this.moveButton.enabled = list.length > 0;
@@ -1030,13 +1375,13 @@ ExclusionDialog.prototype.exportTxt = function()
    if (list.length === 0) return;
 
    var sfd = new SaveFileDialog();
-   sfd.caption = "Exporter la liste d'exclusion";
-   sfd.filters = [["Fichiers texte", "*.txt"], ["Tous les fichiers", "*"]];
+   sfd.caption = tr("excl.exportCaption");
+   sfd.filters = [[tr("txt.filter"), "*.txt"], [tr("filter.all"), "*"]];
    sfd.overwritePrompt = true;
 
    var first = list[0].filepath;
    sfd.initialPath = File.extractDrive(first) + File.extractDirectory(first) +
-      "/exclusions_darks.txt";
+      "/darks_exclusions.txt";
 
    if (!sfd.execute()) return;
 
@@ -1050,12 +1395,12 @@ ExclusionDialog.prototype.exportTxt = function()
 
    try {
       writeTextFileCompat(path, paths.join("\n") + "\n");
-      console.noteln("Liste d'exclusion exportée : " + path);
-      (new MessageBox("Liste d'exclusion exportée :\n" + path,
+      console.noteln(tr("excl.exportDoneLog", path));
+      (new MessageBox(tr("excl.exportDone", path),
          TITLE, StdIcon_Information, StdButton_Ok)).execute();
    }
    catch (e) {
-      (new MessageBox("Échec de l'export :\n" + e.message,
+      (new MessageBox(tr("excl.exportFail", e.message),
          TITLE, StdIcon_Error, StdButton_Ok)).execute();
    }
 };
@@ -1065,11 +1410,8 @@ ExclusionDialog.prototype.moveToRejected = function()
    var list = this.excludedMetrics();
    if (list.length === 0) return;
 
-   var msg = "Déplacer " + list.length + " fichier(s) vers un sous-répertoire " +
-      "'rejected' (créé à côté des darks) ?\n\n" +
-      "Les fichiers déplacés seront retirés de la liste d'analyse.";
-   var answer = (new MessageBox(msg, TITLE, StdIcon_Question,
-      StdButton_Yes, StdButton_No)).execute();
+   var answer = (new MessageBox(tr("excl.confirmMove", list.length),
+      TITLE, StdIcon_Question, StdButton_Yes, StdButton_No)).execute();
    if (answer !== StdButton_Yes)
       return;
 
@@ -1086,14 +1428,14 @@ ExclusionDialog.prototype.moveToRejected = function()
 
          var target = rejDir + "/" + m.filename;
          if (File.exists(target))
-            throw new Error("un fichier du même nom existe déjà dans rejected/");
+            throw new Error(tr("excl.exists"));
 
          File.move(m.filepath, target);
          this.movedPaths.push(m.filepath);
          moved++;
-         console.noteln("Déplacé : " + m.filename + " -> " + target);
+         console.noteln(tr("excl.movedLog", m.filename, target));
 
-         // Retirer le fichier de la liste du dialogue principal
+         // Remove the file from the main dialog's list
          this.parentDialog.removeFileByPath(m.filepath);
       }
       catch (e) {
@@ -1103,9 +1445,9 @@ ExclusionDialog.prototype.moveToRejected = function()
 
    this.refreshList();
 
-   var report = moved + " fichier(s) déplacé(s) vers rejected/";
+   var report = tr("excl.moveReport", moved);
    if (failed.length > 0)
-      report += "\n\nÉchecs (" + failed.length + ") :\n" + failed.join("\n");
+      report += tr("excl.moveFailures", failed.length, failed.join("\n"));
    (new MessageBox(report, TITLE,
       failed.length > 0 ? StdIcon_Warning : StdIcon_Information,
       StdButton_Ok)).execute();
@@ -1113,7 +1455,7 @@ ExclusionDialog.prototype.moveToRejected = function()
 
 
 // ============================================================================
-// DIALOG GUI
+// MAIN DIALOG
 // ============================================================================
 
 function DarkAnalyzerDialog()
@@ -1123,28 +1465,50 @@ function DarkAnalyzerDialog()
 
    var self = this;
 
-   // Copie des parametres courants
+   // Working copy of the current parameters
    this.params = {};
    for (var key in DEFAULT_PARAMS)
       this.params[key] = DEFAULT_PARAMS[key];
 
-   // Donnees
+   // Data
    this.filePaths = [];
    this.allMetrics = [];
    this.refs = null;
-   this.busy = false;  // analyse en cours (verrouille la GUI)
+   this.busy = false;  // analysis in progress (locks the GUI)
 
    // -----------------------------------------------------------------------
-   // Titre
+   // Title + top row (help text + language selector)
    // -----------------------------------------------------------------------
    this.title = TITLE + " v" + VERSION;
 
    this.helpLabel = new Label(this);
-   this.helpLabel.text = "Ajoutez des fichiers FITS de darks, configurez les seuils, puis lancez l'analyse.";
    this.helpLabel.useRichText = false;
 
+   this.langLabel = new Label(this);
+   this.langLabel.textAlignment = TextAlign_Right | TextAlign_VertCenter;
+
+   this.langCombo = new ComboBox(this);
+   for (var li = 0; li < LANG_NAMES.length; ++li)
+      this.langCombo.addItem(LANG_NAMES[li]);
+   this.langCombo.currentItem = Math.max(0, LANG_CODES.indexOf(gLanguage));
+   this.langCombo.onItemSelected = function(index)
+   {
+      gLanguage = LANG_CODES[index];
+      saveLanguageSetting();
+      // Static texts update immediately; already computed content
+      // (table rows, summary) refreshes on the next analysis
+      self.applyLanguage();
+   };
+
+   this.topSizer = new HorizontalSizer();
+   this.topSizer.spacing = 6;
+   this.topSizer.add(this.helpLabel);
+   this.topSizer.addStretch();
+   this.topSizer.add(this.langLabel);
+   this.topSizer.add(this.langCombo);
+
    // -----------------------------------------------------------------------
-   // TreeBox unique (fichiers + resultats)
+   // Single TreeBox (files + results)
    // -----------------------------------------------------------------------
    this.fileTreeBox = new TreeBox(this);
    this.fileTreeBox.alternateRowColor = true;
@@ -1152,18 +1516,10 @@ function DarkAnalyzerDialog()
    this.fileTreeBox.headerSorting = true;
    this.fileTreeBox.multipleSelection = true;
    this.fileTreeBox.sort(1, false);
-   // La colonne 8 (cachée) contient le chemin complet du fichier :
-   // c'est l'identifiant unique de chaque ligne. Les tris (auto ou via
-   // en-têtes) réordonnent les lignes, donc jamais d'accès par index.
+   // Hidden column 8 holds the full file path: it is the unique row
+   // identifier. Sorts (automatic or via headers) reorder the rows,
+   // so rows are never accessed by index.
    this.fileTreeBox.numberOfColumns = 9;
-   this.fileTreeBox.setHeaderText(0, "#");
-   this.fileTreeBox.setHeaderText(1, "Fichier");
-   this.fileTreeBox.setHeaderText(2, "Temp.");
-   this.fileTreeBox.setHeaderText(3, "Médiane");
-   this.fileTreeBox.setHeaderText(4, "Bruit");
-   this.fileTreeBox.setHeaderText(5, "Hot px");
-   this.fileTreeBox.setHeaderText(6, "Sat.");
-   this.fileTreeBox.setHeaderText(7, "Etat");
    this.fileTreeBox.setHeaderText(8, "");
 
    this.fileTreeBox.setColumnWidth(0, 50);
@@ -1180,17 +1536,15 @@ function DarkAnalyzerDialog()
    this.fileTreeBox.setMinSize(800, 300);
 
    // -----------------------------------------------------------------------
-   // Boutons fichiers
+   // File buttons
    // -----------------------------------------------------------------------
    this.addFilesButton = new PushButton(this);
-   this.addFilesButton.text = "+ Darks";
-   this.addFilesButton.toolTip = "Ajouter des fichiers FITS";
    this.addFilesButton.onClick = function()
    {
       var ofd = new OpenFileDialog();
       ofd.multipleSelections = true;
-      ofd.caption = "Sélectionner des darks FITS";
-      ofd.filters = [["FITS files", "*.fits", "*.fit", "*.FITS", "*.FIT"]];
+      ofd.caption = tr("dlg.selectFiles");
+      ofd.filters = [[tr("dlg.fitsFilter"), "*.fits", "*.fit", "*.FITS", "*.FIT"]];
       if (ofd.execute()) {
          for (var i = 0; i < ofd.fileNames.length; ++i)
             self.addFile(ofd.fileNames[i]);
@@ -1198,12 +1552,10 @@ function DarkAnalyzerDialog()
    };
 
    this.addDirButton = new PushButton(this);
-   this.addDirButton.text = "+ Répertoire";
-   this.addDirButton.toolTip = "Ajouter tous les FITS d'un répertoire";
    this.addDirButton.onClick = function()
    {
       var gdd = new GetDirectoryDialog();
-      gdd.caption = "Sélectionner un répertoire de darks";
+      gdd.caption = tr("dlg.selectDir");
       if (gdd.execute()) {
          var dir = gdd.directory;
          var search = new FileFind();
@@ -1220,13 +1572,11 @@ function DarkAnalyzerDialog()
    };
 
    this.removeButton = new PushButton(this);
-   this.removeButton.text = "- Supprimer";
-   this.removeButton.toolTip = "Supprimer les fichiers sélectionnés";
    this.removeButton.onClick = function()
    {
-      // Supprimer les lignes selectionnees (en partant de la fin).
-      // On retrouve le fichier par son chemin (colonne cachee), pas par
-      // l'index de ligne : apres un tri les deux ne correspondent plus.
+      // Remove the selected rows (walking backwards). The file is found
+      // by its path (hidden column), not by row index: after a sort the
+      // two no longer match.
       for (var i = self.fileTreeBox.numberOfChildren - 1; i >= 0; --i) {
          var node = self.fileTreeBox.child(i);
          if (node.selected) {
@@ -1244,8 +1594,6 @@ function DarkAnalyzerDialog()
    };
 
    this.clearButton = new PushButton(this);
-   this.clearButton.text = "Tout vider";
-   this.clearButton.toolTip = "Supprimer tous les fichiers";
    this.clearButton.onClick = function()
    {
       self.filePaths = [];
@@ -1265,9 +1613,8 @@ function DarkAnalyzerDialog()
    this.fileButtonsSizer.add(this.removeButton);
    this.fileButtonsSizer.add(this.clearButton);
 
-   // GroupBox fichiers
+   // Files group box
    this.filesGroupBox = new GroupBox(this);
-   this.filesGroupBox.title = "Darks";
    this.filesGroupBox.sizer = new VerticalSizer();
    this.filesGroupBox.sizer.margin = 6;
    this.filesGroupBox.sizer.spacing = 6;
@@ -1275,37 +1622,33 @@ function DarkAnalyzerDialog()
    this.filesGroupBox.sizer.add(this.fileButtonsSizer);
 
    // -----------------------------------------------------------------------
-   // Parametres d'analyse — par groupe de metrique
+   // Analysis parameters — one group per metric
    // -----------------------------------------------------------------------
 
    // --- Temperature ---
    this.tempDevControl = this.createNumericControl(
-      "Écart max (°C) :", 0.1, 2.0, this.params.tempDeviationMax, 2);
+      0.1, 2.0, this.params.tempDeviationMax, 2);
    this.tempHint = new Label(this);
-   this.tempHint.text = "Écart toléré entre température de consigne et température capteur.";
    this.tempHint.styleSheet = "QLabel { color: gray; font-style: italic; }";
 
    this.tempGroup = new GroupBox(this);
-   this.tempGroup.title = "Température";
    this.tempGroup.sizer = new VerticalSizer();
    this.tempGroup.sizer.margin = 6;
    this.tempGroup.sizer.spacing = 4;
    this.tempGroup.sizer.add(this.tempHint);
    this.tempGroup.sizer.add(this.tempDevControl);
 
-   // --- Mediane ---
+   // --- Median ---
    this.sigmaMedianControl = this.createNumericControl(
-      "Sensibilité (sigma) :", 0.5, 5.0, this.params.outlierSigmaMedian, 1);
+      0.5, 5.0, this.params.outlierSigmaMedian, 1);
    this.medDevWarnControl = this.createNumericControl(
-      "Alerte (ADU) :", 10, 256, this.params.medianAbsDeviationWarn, 0);
+      10, 256, this.params.medianAbsDeviationWarn, 0);
    this.medDevCritControl = this.createNumericControl(
-      "Rejet (ADU) :", 20, 512, this.params.medianAbsDeviationCrit, 0);
+      20, 512, this.params.medianAbsDeviationCrit, 0);
    this.medianHint = new Label(this);
-   this.medianHint.text = "Détecte les darks dont le signal thermique diffère de la série.";
    this.medianHint.styleSheet = "QLabel { color: gray; font-style: italic; }";
 
    this.medianGroup = new GroupBox(this);
-   this.medianGroup.title = "Médiane";
    this.medianGroup.sizer = new VerticalSizer();
    this.medianGroup.sizer.margin = 6;
    this.medianGroup.sizer.spacing = 4;
@@ -1314,17 +1657,15 @@ function DarkAnalyzerDialog()
    this.medianGroup.sizer.add(this.medDevWarnControl);
    this.medianGroup.sizer.add(this.medDevCritControl);
 
-   // --- Bruit ---
+   // --- Noise ---
    this.sigmaMadControl = this.createNumericControl(
-      "Sensibilité (sigma) :", 0.5, 5.0, this.params.outlierSigmaMad, 1);
+      0.5, 5.0, this.params.outlierSigmaMad, 1);
    this.madDevWarnControl = this.createNumericControl(
-      "Alerte (ADU) :", 5, 100, this.params.madAbsDeviationWarn, 0);
+      5, 100, this.params.madAbsDeviationWarn, 0);
    this.bruitHint = new Label(this);
-   this.bruitHint.text = "Détecte un bruit de lecture anormal (MAD de l'image).";
    this.bruitHint.styleSheet = "QLabel { color: gray; font-style: italic; }";
 
    this.bruitGroup = new GroupBox(this);
-   this.bruitGroup.title = "Bruit";
    this.bruitGroup.sizer = new VerticalSizer();
    this.bruitGroup.sizer.margin = 6;
    this.bruitGroup.sizer.spacing = 4;
@@ -1334,15 +1675,13 @@ function DarkAnalyzerDialog()
 
    // --- Hot pixels ---
    this.sigmaHotpxControl = this.createNumericControl(
-      "Sensibilité (sigma) :", 0.5, 5.0, this.params.outlierSigmaHotpx, 1);
+      0.5, 5.0, this.params.outlierSigmaHotpx, 1);
    this.hotPxThreshControl = this.createNumericControl(
-      "Seuil (ADU) :", 500, 10000, this.params.hotPixelThresholdADU, 0);
+      500, 10000, this.params.hotPixelThresholdADU, 0);
    this.hotpxHint = new Label(this);
-   this.hotpxHint.text = "Compte les pixels au-dessus du seuil et détecte les écarts.";
    this.hotpxHint.styleSheet = "QLabel { color: gray; font-style: italic; }";
 
    this.hotpxGroup = new GroupBox(this);
-   this.hotpxGroup.title = "Hot pixels";
    this.hotpxGroup.sizer = new VerticalSizer();
    this.hotpxGroup.sizer.margin = 6;
    this.hotpxGroup.sizer.spacing = 4;
@@ -1352,20 +1691,18 @@ function DarkAnalyzerDialog()
 
    // --- Saturation ---
    this.satPxMaxControl = this.createNumericControl(
-      "Pixels saturés max :", 10, 5000, this.params.saturatedPixelsMax, 0);
+      10, 5000, this.params.saturatedPixelsMax, 0);
    this.satHint = new Label(this);
-   this.satHint.text = "Nombre max de pixels saturés accepté par dark.";
    this.satHint.styleSheet = "QLabel { color: gray; font-style: italic; }";
 
    this.satGroup = new GroupBox(this);
-   this.satGroup.title = "Saturation";
    this.satGroup.sizer = new VerticalSizer();
    this.satGroup.sizer.margin = 6;
    this.satGroup.sizer.spacing = 4;
    this.satGroup.sizer.add(this.satHint);
    this.satGroup.sizer.add(this.satPxMaxControl);
 
-   // --- Layout 2 colonnes ---
+   // --- Two-column layout ---
    this.paramsCol1 = new VerticalSizer();
    this.paramsCol1.spacing = 6;
    this.paramsCol1.add(this.tempGroup);
@@ -1378,7 +1715,6 @@ function DarkAnalyzerDialog()
    this.paramsCol2.add(this.satGroup);
 
    this.paramsGroupBox = new GroupBox(this);
-   this.paramsGroupBox.title = "Seuils de détection";
    this.paramsGroupBox.sizer = new HorizontalSizer();
    this.paramsGroupBox.sizer.margin = 6;
    this.paramsGroupBox.sizer.spacing = 8;
@@ -1386,7 +1722,7 @@ function DarkAnalyzerDialog()
    this.paramsGroupBox.sizer.add(this.paramsCol2);
 
    // -----------------------------------------------------------------------
-   // Resume
+   // Summary
    // -----------------------------------------------------------------------
    this.summaryLabel = new Label(this);
    this.summaryLabel.text = "";
@@ -1395,31 +1731,23 @@ function DarkAnalyzerDialog()
    this.summaryLabel.styleSheet = "QLabel { font-size: 14pt; }";
 
    // -----------------------------------------------------------------------
-   // Boutons d'action
+   // Action buttons
    // -----------------------------------------------------------------------
    this.analyzeButton = new PushButton(this);
-   this.analyzeButton.text = "Analyser";
    this.analyzeButton.icon = this.scaledResource(":/icons/gears.png");
-   this.analyzeButton.toolTip = "Lancer l'analyse de tous les darks";
    this.analyzeButton.onClick = function() { self.runAnalysis(); };
 
    this.exportCsvButton = new PushButton(this);
-   this.exportCsvButton.text = "Exporter CSV...";
    this.exportCsvButton.icon = this.scaledResource(":/icons/document-csv.png");
-   this.exportCsvButton.toolTip = "Exporter les métriques de la dernière analyse dans un fichier CSV";
-   this.exportCsvButton.enabled = false;  // actif apres une analyse
+   this.exportCsvButton.enabled = false;  // enabled after an analysis
    this.exportCsvButton.onClick = function() { self.exportCsv(); };
 
    this.exclusionsButton = new PushButton(this);
-   this.exclusionsButton.text = "Exclusions WBPP...";
    this.exclusionsButton.icon = this.scaledResource(":/icons/window-export.png");
-   this.exclusionsButton.toolTip = "Liste des darks à écarter de l'empilement : " +
-      "export .txt ou déplacement vers un sous-répertoire rejected/";
-   this.exclusionsButton.enabled = false;  // actif apres une analyse
+   this.exclusionsButton.enabled = false;  // enabled after an analysis
    this.exclusionsButton.onClick = function() { self.showExclusions(); };
 
    this.closeButton = new PushButton(this);
-   this.closeButton.text = "Fermer";
    this.closeButton.icon = this.scaledResource(":/icons/close.png");
    this.closeButton.onClick = function() { self.cancel(); };
 
@@ -1433,16 +1761,19 @@ function DarkAnalyzerDialog()
    this.actionButtonsSizer.addStretch();
 
    // -----------------------------------------------------------------------
-   // Layout principal
+   // Main layout
    // -----------------------------------------------------------------------
    this.sizer = new VerticalSizer();
    this.sizer.margin = 8;
    this.sizer.spacing = 8;
-   this.sizer.add(this.helpLabel);
+   this.sizer.add(this.topSizer);
    this.sizer.add(this.filesGroupBox, 100);  // stretch
    this.sizer.add(this.paramsGroupBox);
    this.sizer.add(this.summaryLabel);
    this.sizer.add(this.actionButtonsSizer);
+
+   // Apply all translatable texts for the current language
+   this.applyLanguage();
 
    this.windowTitle = TITLE;
    this.setMinSize(850, 650);
@@ -1453,13 +1784,13 @@ DarkAnalyzerDialog.prototype = new Dialog();
 
 
 // ============================================================================
-// METHODES DU DIALOG
+// DIALOG METHODS
 // ============================================================================
 
-DarkAnalyzerDialog.prototype.createNumericControl = function(label, minVal, maxVal, defaultVal, precision)
+DarkAnalyzerDialog.prototype.createNumericControl = function(minVal, maxVal, defaultVal, precision)
 {
+   // Labels are assigned by applyLanguage()
    var nc = new NumericControl(this);
-   nc.label.text = label;
    nc.label.minWidth = 200;
    nc.setRange(minVal, maxVal);
    nc.setPrecision(precision);
@@ -1467,9 +1798,65 @@ DarkAnalyzerDialog.prototype.createNumericControl = function(label, minVal, maxV
    return nc;
 };
 
+DarkAnalyzerDialog.prototype.applyLanguage = function()
+{
+   // Assign every static translatable text for the current language.
+   // Called once at construction and again on each language switch.
+   this.helpLabel.text = tr("help");
+   this.langLabel.text = tr("lang.label");
+
+   this.fileTreeBox.setHeaderText(0, tr("col.num"));
+   this.fileTreeBox.setHeaderText(1, tr("col.file"));
+   this.fileTreeBox.setHeaderText(2, tr("col.temp"));
+   this.fileTreeBox.setHeaderText(3, tr("col.median"));
+   this.fileTreeBox.setHeaderText(4, tr("col.noise"));
+   this.fileTreeBox.setHeaderText(5, tr("col.hotpx"));
+   this.fileTreeBox.setHeaderText(6, tr("col.sat"));
+   this.fileTreeBox.setHeaderText(7, tr("col.state"));
+
+   this.filesGroupBox.title = tr("files.group");
+   this.addFilesButton.text = tr("btn.addFiles");
+   this.addFilesButton.toolTip = tr("btn.addFiles.tt");
+   this.addDirButton.text = tr("btn.addDir");
+   this.addDirButton.toolTip = tr("btn.addDir.tt");
+   this.removeButton.text = tr("btn.remove");
+   this.removeButton.toolTip = tr("btn.remove.tt");
+   this.clearButton.text = tr("btn.clear");
+   this.clearButton.toolTip = tr("btn.clear.tt");
+
+   this.paramsGroupBox.title = tr("params.group");
+   this.tempGroup.title = tr("temp.group");
+   this.tempHint.text = tr("temp.hint");
+   this.tempDevControl.label.text = tr("temp.max");
+   this.medianGroup.title = tr("median.group");
+   this.medianHint.text = tr("median.hint");
+   this.sigmaMedianControl.label.text = tr("lbl.sigma");
+   this.medDevWarnControl.label.text = tr("lbl.warnAdu");
+   this.medDevCritControl.label.text = tr("lbl.critAdu");
+   this.bruitGroup.title = tr("noise.group");
+   this.bruitHint.text = tr("noise.hint");
+   this.sigmaMadControl.label.text = tr("lbl.sigma");
+   this.madDevWarnControl.label.text = tr("lbl.warnAdu");
+   this.hotpxGroup.title = tr("hotpx.group");
+   this.hotpxHint.text = tr("hotpx.hint");
+   this.sigmaHotpxControl.label.text = tr("lbl.sigma");
+   this.hotPxThreshControl.label.text = tr("hotpx.threshold");
+   this.satGroup.title = tr("sat.group");
+   this.satHint.text = tr("sat.hint");
+   this.satPxMaxControl.label.text = tr("sat.max");
+
+   this.analyzeButton.text = tr("btn.analyze");
+   this.analyzeButton.toolTip = tr("btn.analyze.tt");
+   this.exportCsvButton.text = tr("btn.exportCsv");
+   this.exportCsvButton.toolTip = tr("btn.exportCsv.tt");
+   this.exclusionsButton.text = tr("btn.exclusions");
+   this.exclusionsButton.toolTip = tr("btn.exclusions.tt");
+   this.closeButton.text = tr("btn.close");
+};
+
 DarkAnalyzerDialog.prototype.addFile = function(filePath)
 {
-   // Eviter les doublons
+   // Skip duplicates
    for (var i = 0; i < this.filePaths.length; ++i) {
       if (this.filePaths[i] === filePath) return;
    }
@@ -1483,8 +1870,8 @@ DarkAnalyzerDialog.prototype.addFile = function(filePath)
    node.setText(0, padLeft(String(num), 4));
    node.setAlignment(0, TextAlign_Left);
    node.setText(1, fname);
-   node.setText(8, filePath);  // identifiant unique de la ligne
-   // Colonnes 2-7 restent vides jusqu'a l'analyse
+   node.setText(8, filePath);  // unique row identifier
+   // Columns 2-7 stay empty until the analysis
 };
 
 DarkAnalyzerDialog.prototype.removeFileByPath = function(filePath)
@@ -1516,8 +1903,8 @@ DarkAnalyzerDialog.prototype.findNodeByPath = function(filePath)
 
 DarkAnalyzerDialog.prototype.renumberRows = function()
 {
-   // Numeros cales a droite pour que le tri texte de la colonne #
-   // respecte l'ordre numerique ("   2" avant "  10")
+   // Right-aligned numbers so the text sort of the # column matches
+   // numeric order ("   2" before "  10")
    for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
       this.fileTreeBox.child(i).setText(0, padLeft(String(i + 1), 4));
    }
@@ -1525,9 +1912,9 @@ DarkAnalyzerDialog.prototype.renumberRows = function()
 
 DarkAnalyzerDialog.prototype.setBusy = function(busy)
 {
-   // processEvents() rend la GUI reactive pendant l'analyse : on verrouille
-   // tous les controles pour empecher un second run ou une modification de
-   // la liste des fichiers en plein traitement.
+   // processEvents() keeps the GUI responsive during the analysis: lock
+   // every control to prevent a second run or a change of the file list
+   // in the middle of a run.
    this.busy = busy;
    var enabled = !busy;
    this.analyzeButton.enabled = enabled;
@@ -1561,10 +1948,10 @@ DarkAnalyzerDialog.prototype.updateRowMetrics = function(m)
    if (!node) return;
 
    if (m.error !== null) {
-      node.setText(2, "ERR");
-      node.setText(7, "Erreur");
+      node.setText(2, tr("state.err"));
+      node.setText(7, tr("state.error"));
       node.setIcon(7, new Bitmap(this.scaledResource(":/bullets/bullet-ball-glass-red.png")));
-      node.setToolTip(7, "Erreur: " + m.error);
+      node.setToolTip(7, tr("tt.error", m.error));
       for (var c = 0; c < 8; ++c)
          node.setBackgroundColor(c, 0xFFFF6666);
       return;
@@ -1587,25 +1974,28 @@ DarkAnalyzerDialog.prototype.updateRowSeverity = function(m)
    var iconPath;
    var sortKey;
    if (m.severity === "ok") {
-      color = 0xFF90EE90;  // vert clair
+      color = 0xFF90EE90;  // light green
       iconPath = ":/bullets/bullet-ball-glass-green.png";
-      sortKey = "Valide";
+      sortKey = tr("state.valid");
    }
    else if (m.severity === "warning") {
-      color = 0xFFFFFF66;  // jaune
+      color = 0xFFFFFF66;  // yellow
       iconPath = ":/bullets/bullet-ball-glass-yellow.png";
-      sortKey = "Alerte";
+      sortKey = tr("state.warning");
    }
    else {
-      color = 0xFFFF6666;  // rouge
+      color = 0xFFFF6666;  // red
       iconPath = ":/bullets/bullet-ball-glass-red.png";
-      sortKey = "Rejet";
+      sortKey = tr("state.rejected");
    }
 
    for (var c = 0; c < 8; ++c)
       node.setBackgroundColor(c, color);
 
-   // Icone couleur + cle de tri dans la colonne
+   // Colored icon + sort key in the status column. In both languages the
+   // status words keep the same alphabetical order (Alert/Alerte < Error/
+   // Erreur < Rejected/Rejet < Valid/Valide), so the severity sort of
+   // column 7 behaves identically.
    node.setText(7, sortKey);
    node.setIcon(7, new Bitmap(this.scaledResource(iconPath)));
    var tooltip = "";
@@ -1613,7 +2003,7 @@ DarkAnalyzerDialog.prototype.updateRowSeverity = function(m)
       tooltip = m.flags.join("\n");
    }
    else {
-      tooltip = "Aucune anomalie";
+      tooltip = tr("tt.noAnomaly");
    }
    node.setToolTip(7, tooltip);
 };
@@ -1623,7 +2013,7 @@ DarkAnalyzerDialog.prototype.runAnalysis = function()
    if (this.busy) return;
 
    if (this.filePaths.length === 0) {
-      (new MessageBox("Aucun fichier à analyser.\nAjoutez des fichiers FITS d'abord.",
+      (new MessageBox(tr("msg.noFiles"),
          TITLE, StdIcon_Warning, StdButton_Ok)).execute();
       return;
    }
@@ -1633,21 +2023,20 @@ DarkAnalyzerDialog.prototype.runAnalysis = function()
       this.doAnalysis();
    }
    finally {
-      this.setBusy(false);  // toujours deverrouiller, meme en cas d'erreur
+      this.setBusy(false);  // always unlock, even if the analysis failed
    }
 };
 
 DarkAnalyzerDialog.prototype.doAnalysis = function()
 {
-   // Lire les parametres de la GUI
+   // Read the parameters from the GUI
    this.readParamsFromGUI();
 
-   // Reinitialiser les resultats
+   // Reset the results
    this.allMetrics = [];
    this.refs = null;
 
-
-   // Reinitialiser l'affichage des colonnes
+   // Reset the result columns
    for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
       var node = this.fileTreeBox.child(i);
       for (var c = 2; c < 8; ++c)
@@ -1658,35 +2047,35 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
 
    console.show();
    console.writeln("");
-   console.writeln("Début de l'analyse de " + this.filePaths.length + " darks...");
+   console.writeln(tr("run.start", this.filePaths.length));
    console.flush();
 
    var startTime = Date.now();
 
-   // Phase 1 : Analyse individuelle (mise a jour progressive du TreeBox)
+   // Phase 1: per-frame analysis (progressive TreeBox update)
    for (var i = 0; i < this.filePaths.length; ++i) {
-      console.write("<end>\rAnalyse [" + (i + 1) + "/" + this.filePaths.length + "] " +
+      console.write("<end>\r" + tr("run.progress", i + 1, this.filePaths.length) +
          File.extractName(this.filePaths[i]) + File.extractExtension(this.filePaths[i]));
       console.flush();
 
       var metrics = analyzeSingleDark(this.filePaths[i], this.params);
       this.allMetrics.push(metrics);
 
-      // Mise a jour immediate de la ligne dans le TreeBox
+      // Immediate row update in the TreeBox
       this.updateRowMetrics(metrics);
-      processEvents();  // Rafraichir l'interface
+      processEvents();  // keep the UI responsive
    }
 
-   console.writeln("");  // Nouvelle ligne apres la barre de progression
+   console.writeln("");  // new line after the progress indicator
    var elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-   console.writeln("Analyse individuelle terminée en " + elapsed + " s");
+   console.writeln(tr("run.elapsed", elapsed));
 
-   // Phase 2 : Detection d'outliers sur l'ensemble
+   // Phase 2: outlier detection over the whole series
    var result = detectOutliers(this.allMetrics, this.params);
    this.allMetrics = result.metrics;
    this.refs = result.refs;
 
-   // Phase 3 : Mise a jour des couleurs de severite
+   // Phase 3: severity color update
    var nOk = 0, nWarn = 0, nCrit = 0;
    for (var i = 0; i < this.allMetrics.length; ++i) {
       this.updateRowSeverity(this.allMetrics[i]);
@@ -1695,22 +2084,22 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
       else nCrit++;
    }
 
-   // Resume colore
+   // Colored summary
    this.summaryLabel.text =
-      "<b><span style='color: #228B22;'>" + nOk + " valide" + (nOk > 1 ? "s" : "") + "</span></b>" +
+      "<b><span style='color: #228B22;'>" + nOk + " " + tr("sum.valid") + "</span></b>" +
       " / " +
-      "<b><span style='color: #CC8800;'>" + nWarn + " alerte" + (nWarn > 1 ? "s" : "") + "</span></b>" +
+      "<b><span style='color: #CC8800;'>" + nWarn + " " + tr("sum.warn") + "</span></b>" +
       " / " +
-      "<b><span style='color: #CC0000;'>" + nCrit + " rejet" + (nCrit > 1 ? "s" : "") + "</span></b>";
+      "<b><span style='color: #CC0000;'>" + nCrit + " " + tr("sum.crit") + "</span></b>";
 
-   // Trier par severite (critiques en haut)
+   // Sort by severity (criticals on top)
    this.fileTreeBox.sort(7, true);
    this.renumberRows();
 
-   // Rapport console complet
+   // Full console report
    generateConsoleReport(this.allMetrics, this.refs, this.params);
 
-   // L'export est reactive par setBusy(false) a la fin du run
+   // Export buttons are re-enabled by setBusy(false) at the end of the run
    processEvents();
 };
 
@@ -1719,14 +2108,14 @@ DarkAnalyzerDialog.prototype.exportCsv = function()
    if (this.allMetrics.length === 0) return;
 
    var sfd = new SaveFileDialog();
-   sfd.caption = "Exporter les métriques en CSV";
-   sfd.filters = [["Fichiers CSV", "*.csv"], ["Tous les fichiers", "*"]];
+   sfd.caption = tr("csv.caption");
+   sfd.filters = [[tr("csv.filter"), "*.csv"], [tr("filter.all"), "*"]];
    sfd.overwritePrompt = true;
 
-   // Proposer le repertoire du premier dark analyse
+   // Default to the directory of the first analyzed dark
    var first = this.allMetrics[0].filepath;
    sfd.initialPath = File.extractDrive(first) + File.extractDirectory(first) +
-      "/analyse_darks.csv";
+      "/darks_analysis.csv";
 
    if (!sfd.execute()) return;
 
@@ -1736,12 +2125,12 @@ DarkAnalyzerDialog.prototype.exportCsv = function()
 
    try {
       writeTextFileCompat(path, buildCsv(this.allMetrics));
-      console.noteln("Métriques exportées : " + path);
-      (new MessageBox("Métriques exportées :\n" + path,
+      console.noteln(tr("csv.doneLog", path));
+      (new MessageBox(tr("csv.done", path),
          TITLE, StdIcon_Information, StdButton_Ok)).execute();
    }
    catch (e) {
-      (new MessageBox("Échec de l'export CSV :\n" + e.message,
+      (new MessageBox(tr("csv.fail", e.message),
          TITLE, StdIcon_Error, StdButton_Ok)).execute();
    }
 };
@@ -1755,7 +2144,7 @@ DarkAnalyzerDialog.prototype.showExclusions = function()
       if (this.allMetrics[i].severity !== "ok") flagged++;
    }
    if (flagged === 0) {
-      (new MessageBox("Aucun dark à exclure — série 100% propre.",
+      (new MessageBox(tr("excl.none"),
          TITLE, StdIcon_Information, StdButton_Ok)).execute();
       return;
    }
@@ -1766,11 +2155,12 @@ DarkAnalyzerDialog.prototype.showExclusions = function()
 
 
 // ============================================================================
-// POINT D'ENTREE
+// ENTRY POINT
 // ============================================================================
 
 function main()
 {
+   loadLanguageSetting();
    var dialog = new DarkAnalyzerDialog();
    dialog.execute();
 }
