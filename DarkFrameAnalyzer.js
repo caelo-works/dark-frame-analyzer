@@ -22,7 +22,7 @@
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
 
-#define VERSION "1.3.0"
+#define VERSION "1.4.0"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
@@ -624,12 +624,16 @@ function analyzeSingleDark(filePath, params)
       metrics.median = image.median() * SCALE;
       metrics.stdDev = image.stdDev() * SCALE;
 
-      // --- Robust MAD through avgDev ---
-      // For a Gaussian distribution:
-      //   avgDev = sigma * sqrt(2/pi) = sigma * 0.7979
-      //   mad_std (sigma-equivalent) = sigma
-      // Hence: mad_std = avgDev / 0.7979 = avgDev * 1.2533
-      metrics.mad = image.avgDev() * SCALE * 1.2533;
+      // --- 16-bit histogram (single C++ pass) ---
+      // Used for the exact MAD below and the hot pixel counts
+      var histogram = computeHistogramCounts(image);
+
+      // --- Exact robust MAD from the histogram ---
+      // The former avgDev*1.2533 approximation is only valid for a
+      // Gaussian distribution: hot pixel tails inflate avgDev. Walking
+      // the histogram outward from the exact median gives the true MAD,
+      // like astropy's mad_std.
+      metrics.mad = histogramMAD(histogram, metrics.median);
 
       // --- Clipped statistics (2 passes) ---
       // 1) median and MAD are already known
@@ -651,10 +655,6 @@ function analyzeSingleDark(filePath, params)
       image.rangeClippingEnabled = false;
 
       // --- Hot pixel counting through the histogram ---
-      // Build a 16-bit histogram (65536 bins) in a single C++ pass, then
-      // sum the bins above each threshold in JS (instantaneous)
-      var histogram = computeHistogramCounts(image);
-
       metrics.nHot1k = sumBinsAbove(histogram, 1000);
       metrics.nHot5k = sumBinsAbove(histogram, Math.round(params.hotPixelThresholdADU));
       metrics.nHot10k = sumBinsAbove(histogram, 10000);
@@ -750,6 +750,35 @@ function sumBinsAbove(histogram, threshold)
    for (var b = threshold; b < histogram.length; ++b)
       count += histogram[b];
    return count;
+}
+
+function histogramMAD(histogram, median)
+{
+   // Exact median absolute deviation from a histogram: walk outward from
+   // the median bin, accumulating pixel counts, until half of the pixels
+   // are within the current deviation. That deviation is the MAD.
+   // x1.4826 makes it sigma-equivalent (like astropy's mad_std).
+   var total = 0;
+   for (var i = 0; i < histogram.length; ++i)
+      total += histogram[i];
+   if (total === 0) return 0;
+
+   var m = Math.round(median);
+   if (m < 0) m = 0;
+   if (m > histogram.length - 1) m = histogram.length - 1;
+
+   var half = total / 2;
+   var acc = histogram[m];
+   var maxDev = Math.max(m, histogram.length - 1 - m);
+   for (var d = 1; d <= maxDev; ++d) {
+      if (acc >= half)
+         return (d - 1) * 1.4826;
+      var lo = m - d;
+      var hi = m + d;
+      if (lo >= 0) acc += histogram[lo];
+      if (hi < histogram.length) acc += histogram[hi];
+   }
+   return maxDev * 1.4826;
 }
 
 function patchMedian(image, x0, y0, w, h)
