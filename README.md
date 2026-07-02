@@ -50,16 +50,15 @@ a detailed console report, a CSV export and a ready-to-use exclusion list.
 
 ## Installation
 
-### From the CaeloWorks update repository (recommended)
+### From the CaeloWorks update repository — 🚧 coming soon
 
-1. In PixInsight, open **Resources → Updates → Manage Repositories**.
-2. Click **Add** and enter the repository URL: `https://pixinsight-scripts.caelo.works/update/`
-3. Run **Resources → Updates → Check for Updates** and accept the install.
-4. **Restart PixInsight** — the script appears under **Script → Utilities → DarkFrameAnalyzer**.
+Distribution through a PixInsight update repository is in the works
+(pending PixInsight certification). Once live, adding
+`https://pixinsight-scripts.caelo.works/update/` under
+**Resources → Updates → Manage Repositories** will install the script and
+deliver updates automatically. Until then, use the manual install below.
 
-Updates are then delivered automatically through the same channel.
-
-### Manual install
+### Manual install (recommended for now)
 
 Download `DarkFrameAnalyzer.js` from the **[Releases](https://github.com/caelo-works/dark-frame-analyzer/releases)**, then in
 PixInsight use **Script → Feature Scripts…**, click **Add** and select the
