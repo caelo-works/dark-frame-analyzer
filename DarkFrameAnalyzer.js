@@ -1180,17 +1180,19 @@ function csvNum(val, decimals)
 
 function buildCsv(allMetrics)
 {
+   // Header names are fixed English regardless of the UI language:
+   // machine-readable output stays stable for downstream tooling
    var header = [
-      "fichier", "chemin", "date_obs", "type_image",
+      "file", "path", "date_obs", "image_type",
       "gain", "offset", "exptime_s",
-      "set_temp_c", "ccd_temp_c", "derive_temp_c",
+      "set_temp_c", "ccd_temp_c", "temp_drift_c",
       "readout_mode", "bayer",
-      "largeur", "hauteur",
-      "min_adu", "max_adu", "moyenne_adu", "mediane_adu", "ecart_type_adu",
-      "mad_adu", "moyenne_clip_adu", "mediane_clip_adu", "ecart_type_clip_adu",
-      "hot_1k", "hot_5k", "hot_10k", "satures", "zeros",
-      "mediane_centre_adu", "delta_coins_adu",
-      "etat", "alertes", "erreur"
+      "width", "height",
+      "min_adu", "max_adu", "mean_adu", "median_adu", "stddev_adu",
+      "mad_adu", "mean_clip_adu", "median_clip_adu", "stddev_clip_adu",
+      "hot_1k", "hot_5k", "hot_10k", "saturated", "zeros",
+      "center_median_adu", "corner_delta_adu",
+      "status", "flags", "error"
    ];
 
    var lines = [header.join(CSV_SEP)];
@@ -1272,21 +1274,18 @@ function ExclusionDialog(parentDialog, allMetrics)
 
    this.parentDialog = parentDialog;
    this.allMetrics = allMetrics;
-   this.movedPaths = [];        // fichiers deja deplaces vers rejected/
+   this.movedPaths = [];        // files already moved to rejected/
    this.includeWarnings = false;
 
    this.helpLabel = new Label(this);
-   this.helpLabel.text = "Liste des darks à écarter de l'empilement. " +
-      "Copiez-la, exportez-la en .txt, ou déplacez les fichiers dans un " +
-      "sous-répertoire 'rejected' pour que WBPP ne les voie plus.";
+   this.helpLabel.text = tr("excl.help");
    this.helpLabel.wordWrapping = true;
    this.helpLabel.useRichText = false;
 
    this.includeWarningsCheck = new CheckBox(this);
-   this.includeWarningsCheck.text = "Inclure les alertes (par défaut : rejets seuls)";
+   this.includeWarningsCheck.text = tr("excl.inclWarn");
    this.includeWarningsCheck.checked = false;
-   this.includeWarningsCheck.toolTip = "Les rejets (critiques) sont toujours listés. " +
-      "Cochez pour ajouter les darks en alerte (warning).";
+   this.includeWarningsCheck.toolTip = tr("excl.inclWarn.tt");
    this.includeWarningsCheck.onCheck = function(checked)
    {
       self.includeWarnings = checked;
@@ -1301,20 +1300,19 @@ function ExclusionDialog(parentDialog, allMetrics)
    this.countLabel.text = "";
 
    this.exportTxtButton = new PushButton(this);
-   this.exportTxtButton.text = "Exporter .txt...";
+   this.exportTxtButton.text = tr("excl.exportTxt");
    this.exportTxtButton.icon = this.scaledResource(":/icons/document-text-export.png");
-   this.exportTxtButton.toolTip = "Écrire la liste (un chemin par ligne) dans un fichier texte";
+   this.exportTxtButton.toolTip = tr("excl.exportTxt.tt");
    this.exportTxtButton.onClick = function() { self.exportTxt(); };
 
    this.moveButton = new PushButton(this);
-   this.moveButton.text = "Déplacer vers rejected/...";
+   this.moveButton.text = tr("excl.move");
    this.moveButton.icon = this.scaledResource(":/icons/folder.png");
-   this.moveButton.toolTip = "Déplacer les fichiers listés dans un sous-répertoire " +
-      "'rejected' à côté des darks (avec confirmation)";
+   this.moveButton.toolTip = tr("excl.move.tt");
    this.moveButton.onClick = function() { self.moveToRejected(); };
 
    this.closeButton = new PushButton(this);
-   this.closeButton.text = "Fermer";
+   this.closeButton.text = tr("btn.close");
    this.closeButton.icon = this.scaledResource(":/icons/close.png");
    this.closeButton.onClick = function() { self.ok(); };
 
@@ -1334,7 +1332,7 @@ function ExclusionDialog(parentDialog, allMetrics)
    this.sizer.add(this.countLabel);
    this.sizer.add(this.buttonsSizer);
 
-   this.windowTitle = TITLE + " — Exclusions WBPP";
+   this.windowTitle = TITLE + " — " + tr("excl.title");
    this.adjustToContents();
 
    this.refreshList();
@@ -1344,8 +1342,8 @@ ExclusionDialog.prototype = new Dialog();
 
 ExclusionDialog.prototype.excludedMetrics = function()
 {
-   // Rejets (critiques + erreurs de lecture) toujours, alertes sur option.
-   // Les fichiers deja deplaces ne sont plus listes.
+   // Rejected darks (criticals + read errors) always, warnings on option.
+   // Files already moved are no longer listed.
    var list = [];
    for (var i = 0; i < this.allMetrics.length; ++i) {
       var m = this.allMetrics[i];
@@ -1366,9 +1364,9 @@ ExclusionDialog.prototype.refreshList = function()
       paths.push(list[i].filepath);
 
    this.listTextBox.text = paths.join("\n");
-   this.countLabel.text = list.length + " fichier(s) à exclure" +
+   this.countLabel.text = tr("excl.count", list.length) +
       (this.movedPaths.length > 0 ?
-         " — " + this.movedPaths.length + " déjà déplacé(s)" : "");
+         tr("excl.movedCount", this.movedPaths.length) : "");
 
    this.exportTxtButton.enabled = list.length > 0;
    this.moveButton.enabled = list.length > 0;
@@ -1380,13 +1378,13 @@ ExclusionDialog.prototype.exportTxt = function()
    if (list.length === 0) return;
 
    var sfd = new SaveFileDialog();
-   sfd.caption = "Exporter la liste d'exclusion";
-   sfd.filters = [["Fichiers texte", "*.txt"], ["Tous les fichiers", "*"]];
+   sfd.caption = tr("excl.exportCaption");
+   sfd.filters = [[tr("txt.filter"), "*.txt"], [tr("filter.all"), "*"]];
    sfd.overwritePrompt = true;
 
    var first = list[0].filepath;
    sfd.initialPath = File.extractDrive(first) + File.extractDirectory(first) +
-      "/exclusions_darks.txt";
+      "/darks_exclusions.txt";
 
    if (!sfd.execute()) return;
 
@@ -1400,12 +1398,12 @@ ExclusionDialog.prototype.exportTxt = function()
 
    try {
       writeTextFileCompat(path, paths.join("\n") + "\n");
-      console.noteln("Liste d'exclusion exportée : " + path);
-      (new MessageBox("Liste d'exclusion exportée :\n" + path,
+      console.noteln(tr("excl.exportDoneLog", path));
+      (new MessageBox(tr("excl.exportDone", path),
          TITLE, StdIcon_Information, StdButton_Ok)).execute();
    }
    catch (e) {
-      (new MessageBox("Échec de l'export :\n" + e.message,
+      (new MessageBox(tr("excl.exportFail", e.message),
          TITLE, StdIcon_Error, StdButton_Ok)).execute();
    }
 };
@@ -1415,11 +1413,8 @@ ExclusionDialog.prototype.moveToRejected = function()
    var list = this.excludedMetrics();
    if (list.length === 0) return;
 
-   var msg = "Déplacer " + list.length + " fichier(s) vers un sous-répertoire " +
-      "'rejected' (créé à côté des darks) ?\n\n" +
-      "Les fichiers déplacés seront retirés de la liste d'analyse.";
-   var answer = (new MessageBox(msg, TITLE, StdIcon_Question,
-      StdButton_Yes, StdButton_No)).execute();
+   var answer = (new MessageBox(tr("excl.confirmMove", list.length),
+      TITLE, StdIcon_Question, StdButton_Yes, StdButton_No)).execute();
    if (answer !== StdButton_Yes)
       return;
 
@@ -1436,14 +1431,14 @@ ExclusionDialog.prototype.moveToRejected = function()
 
          var target = rejDir + "/" + m.filename;
          if (File.exists(target))
-            throw new Error("un fichier du même nom existe déjà dans rejected/");
+            throw new Error(tr("excl.exists"));
 
          File.move(m.filepath, target);
          this.movedPaths.push(m.filepath);
          moved++;
-         console.noteln("Déplacé : " + m.filename + " -> " + target);
+         console.noteln(tr("excl.movedLog", m.filename, target));
 
-         // Retirer le fichier de la liste du dialogue principal
+         // Remove the file from the main dialog's list
          this.parentDialog.removeFileByPath(m.filepath);
       }
       catch (e) {
@@ -1453,9 +1448,9 @@ ExclusionDialog.prototype.moveToRejected = function()
 
    this.refreshList();
 
-   var report = moved + " fichier(s) déplacé(s) vers rejected/";
+   var report = tr("excl.moveReport", moved);
    if (failed.length > 0)
-      report += "\n\nÉchecs (" + failed.length + ") :\n" + failed.join("\n");
+      report += tr("excl.moveFailures", failed.length, failed.join("\n"));
    (new MessageBox(report, TITLE,
       failed.length > 0 ? StdIcon_Warning : StdIcon_Information,
       StdButton_Ok)).execute();
