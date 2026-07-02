@@ -3,6 +3,7 @@
 
 # Captures d'écran de travail
 *.png
+*.jpg
 
 # Données d'astro (jamais versionnées)
 *.fits
