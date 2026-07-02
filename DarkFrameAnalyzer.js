@@ -1473,28 +1473,50 @@ function DarkAnalyzerDialog()
 
    var self = this;
 
-   // Copie des parametres courants
+   // Working copy of the current parameters
    this.params = {};
    for (var key in DEFAULT_PARAMS)
       this.params[key] = DEFAULT_PARAMS[key];
 
-   // Donnees
+   // Data
    this.filePaths = [];
    this.allMetrics = [];
    this.refs = null;
-   this.busy = false;  // analyse en cours (verrouille la GUI)
+   this.busy = false;  // analysis in progress (locks the GUI)
 
    // -----------------------------------------------------------------------
-   // Titre
+   // Title + top row (help text + language selector)
    // -----------------------------------------------------------------------
    this.title = TITLE + " v" + VERSION;
 
    this.helpLabel = new Label(this);
-   this.helpLabel.text = "Ajoutez des fichiers FITS de darks, configurez les seuils, puis lancez l'analyse.";
    this.helpLabel.useRichText = false;
 
+   this.langLabel = new Label(this);
+   this.langLabel.textAlignment = TextAlign_Right | TextAlign_VertCenter;
+
+   this.langCombo = new ComboBox(this);
+   for (var li = 0; li < LANG_NAMES.length; ++li)
+      this.langCombo.addItem(LANG_NAMES[li]);
+   this.langCombo.currentItem = Math.max(0, LANG_CODES.indexOf(gLanguage));
+   this.langCombo.onItemSelected = function(index)
+   {
+      gLanguage = LANG_CODES[index];
+      saveLanguageSetting();
+      // Static texts update immediately; already computed content
+      // (table rows, summary) refreshes on the next analysis
+      self.applyLanguage();
+   };
+
+   this.topSizer = new HorizontalSizer();
+   this.topSizer.spacing = 6;
+   this.topSizer.add(this.helpLabel);
+   this.topSizer.addStretch();
+   this.topSizer.add(this.langLabel);
+   this.topSizer.add(this.langCombo);
+
    // -----------------------------------------------------------------------
-   // TreeBox unique (fichiers + resultats)
+   // Single TreeBox (files + results)
    // -----------------------------------------------------------------------
    this.fileTreeBox = new TreeBox(this);
    this.fileTreeBox.alternateRowColor = true;
@@ -1502,18 +1524,10 @@ function DarkAnalyzerDialog()
    this.fileTreeBox.headerSorting = true;
    this.fileTreeBox.multipleSelection = true;
    this.fileTreeBox.sort(1, false);
-   // La colonne 8 (cachée) contient le chemin complet du fichier :
-   // c'est l'identifiant unique de chaque ligne. Les tris (auto ou via
-   // en-têtes) réordonnent les lignes, donc jamais d'accès par index.
+   // Hidden column 8 holds the full file path: it is the unique row
+   // identifier. Sorts (automatic or via headers) reorder the rows,
+   // so rows are never accessed by index.
    this.fileTreeBox.numberOfColumns = 9;
-   this.fileTreeBox.setHeaderText(0, "#");
-   this.fileTreeBox.setHeaderText(1, "Fichier");
-   this.fileTreeBox.setHeaderText(2, "Temp.");
-   this.fileTreeBox.setHeaderText(3, "Médiane");
-   this.fileTreeBox.setHeaderText(4, "Bruit");
-   this.fileTreeBox.setHeaderText(5, "Hot px");
-   this.fileTreeBox.setHeaderText(6, "Sat.");
-   this.fileTreeBox.setHeaderText(7, "Etat");
    this.fileTreeBox.setHeaderText(8, "");
 
    this.fileTreeBox.setColumnWidth(0, 50);
@@ -1530,17 +1544,15 @@ function DarkAnalyzerDialog()
    this.fileTreeBox.setMinSize(800, 300);
 
    // -----------------------------------------------------------------------
-   // Boutons fichiers
+   // File buttons
    // -----------------------------------------------------------------------
    this.addFilesButton = new PushButton(this);
-   this.addFilesButton.text = "+ Darks";
-   this.addFilesButton.toolTip = "Ajouter des fichiers FITS";
    this.addFilesButton.onClick = function()
    {
       var ofd = new OpenFileDialog();
       ofd.multipleSelections = true;
-      ofd.caption = "Sélectionner des darks FITS";
-      ofd.filters = [["FITS files", "*.fits", "*.fit", "*.FITS", "*.FIT"]];
+      ofd.caption = tr("dlg.selectFiles");
+      ofd.filters = [[tr("dlg.fitsFilter"), "*.fits", "*.fit", "*.FITS", "*.FIT"]];
       if (ofd.execute()) {
          for (var i = 0; i < ofd.fileNames.length; ++i)
             self.addFile(ofd.fileNames[i]);
@@ -1548,12 +1560,10 @@ function DarkAnalyzerDialog()
    };
 
    this.addDirButton = new PushButton(this);
-   this.addDirButton.text = "+ Répertoire";
-   this.addDirButton.toolTip = "Ajouter tous les FITS d'un répertoire";
    this.addDirButton.onClick = function()
    {
       var gdd = new GetDirectoryDialog();
-      gdd.caption = "Sélectionner un répertoire de darks";
+      gdd.caption = tr("dlg.selectDir");
       if (gdd.execute()) {
          var dir = gdd.directory;
          var search = new FileFind();
@@ -1570,13 +1580,11 @@ function DarkAnalyzerDialog()
    };
 
    this.removeButton = new PushButton(this);
-   this.removeButton.text = "- Supprimer";
-   this.removeButton.toolTip = "Supprimer les fichiers sélectionnés";
    this.removeButton.onClick = function()
    {
-      // Supprimer les lignes selectionnees (en partant de la fin).
-      // On retrouve le fichier par son chemin (colonne cachee), pas par
-      // l'index de ligne : apres un tri les deux ne correspondent plus.
+      // Remove the selected rows (walking backwards). The file is found
+      // by its path (hidden column), not by row index: after a sort the
+      // two no longer match.
       for (var i = self.fileTreeBox.numberOfChildren - 1; i >= 0; --i) {
          var node = self.fileTreeBox.child(i);
          if (node.selected) {
@@ -1594,8 +1602,6 @@ function DarkAnalyzerDialog()
    };
 
    this.clearButton = new PushButton(this);
-   this.clearButton.text = "Tout vider";
-   this.clearButton.toolTip = "Supprimer tous les fichiers";
    this.clearButton.onClick = function()
    {
       self.filePaths = [];
@@ -1615,9 +1621,8 @@ function DarkAnalyzerDialog()
    this.fileButtonsSizer.add(this.removeButton);
    this.fileButtonsSizer.add(this.clearButton);
 
-   // GroupBox fichiers
+   // Files group box
    this.filesGroupBox = new GroupBox(this);
-   this.filesGroupBox.title = "Darks";
    this.filesGroupBox.sizer = new VerticalSizer();
    this.filesGroupBox.sizer.margin = 6;
    this.filesGroupBox.sizer.spacing = 6;
@@ -1625,37 +1630,33 @@ function DarkAnalyzerDialog()
    this.filesGroupBox.sizer.add(this.fileButtonsSizer);
 
    // -----------------------------------------------------------------------
-   // Parametres d'analyse — par groupe de metrique
+   // Analysis parameters — one group per metric
    // -----------------------------------------------------------------------
 
    // --- Temperature ---
    this.tempDevControl = this.createNumericControl(
-      "Écart max (°C) :", 0.1, 2.0, this.params.tempDeviationMax, 2);
+      0.1, 2.0, this.params.tempDeviationMax, 2);
    this.tempHint = new Label(this);
-   this.tempHint.text = "Écart toléré entre température de consigne et température capteur.";
    this.tempHint.styleSheet = "QLabel { color: gray; font-style: italic; }";
 
    this.tempGroup = new GroupBox(this);
-   this.tempGroup.title = "Température";
    this.tempGroup.sizer = new VerticalSizer();
    this.tempGroup.sizer.margin = 6;
    this.tempGroup.sizer.spacing = 4;
    this.tempGroup.sizer.add(this.tempHint);
    this.tempGroup.sizer.add(this.tempDevControl);
 
-   // --- Mediane ---
+   // --- Median ---
    this.sigmaMedianControl = this.createNumericControl(
-      "Sensibilité (sigma) :", 0.5, 5.0, this.params.outlierSigmaMedian, 1);
+      0.5, 5.0, this.params.outlierSigmaMedian, 1);
    this.medDevWarnControl = this.createNumericControl(
-      "Alerte (ADU) :", 10, 256, this.params.medianAbsDeviationWarn, 0);
+      10, 256, this.params.medianAbsDeviationWarn, 0);
    this.medDevCritControl = this.createNumericControl(
-      "Rejet (ADU) :", 20, 512, this.params.medianAbsDeviationCrit, 0);
+      20, 512, this.params.medianAbsDeviationCrit, 0);
    this.medianHint = new Label(this);
-   this.medianHint.text = "Détecte les darks dont le signal thermique diffère de la série.";
    this.medianHint.styleSheet = "QLabel { color: gray; font-style: italic; }";
 
    this.medianGroup = new GroupBox(this);
-   this.medianGroup.title = "Médiane";
    this.medianGroup.sizer = new VerticalSizer();
    this.medianGroup.sizer.margin = 6;
    this.medianGroup.sizer.spacing = 4;
@@ -1664,17 +1665,15 @@ function DarkAnalyzerDialog()
    this.medianGroup.sizer.add(this.medDevWarnControl);
    this.medianGroup.sizer.add(this.medDevCritControl);
 
-   // --- Bruit ---
+   // --- Noise ---
    this.sigmaMadControl = this.createNumericControl(
-      "Sensibilité (sigma) :", 0.5, 5.0, this.params.outlierSigmaMad, 1);
+      0.5, 5.0, this.params.outlierSigmaMad, 1);
    this.madDevWarnControl = this.createNumericControl(
-      "Alerte (ADU) :", 5, 100, this.params.madAbsDeviationWarn, 0);
+      5, 100, this.params.madAbsDeviationWarn, 0);
    this.bruitHint = new Label(this);
-   this.bruitHint.text = "Détecte un bruit de lecture anormal (MAD de l'image).";
    this.bruitHint.styleSheet = "QLabel { color: gray; font-style: italic; }";
 
    this.bruitGroup = new GroupBox(this);
-   this.bruitGroup.title = "Bruit";
    this.bruitGroup.sizer = new VerticalSizer();
    this.bruitGroup.sizer.margin = 6;
    this.bruitGroup.sizer.spacing = 4;
@@ -1684,15 +1683,13 @@ function DarkAnalyzerDialog()
 
    // --- Hot pixels ---
    this.sigmaHotpxControl = this.createNumericControl(
-      "Sensibilité (sigma) :", 0.5, 5.0, this.params.outlierSigmaHotpx, 1);
+      0.5, 5.0, this.params.outlierSigmaHotpx, 1);
    this.hotPxThreshControl = this.createNumericControl(
-      "Seuil (ADU) :", 500, 10000, this.params.hotPixelThresholdADU, 0);
+      500, 10000, this.params.hotPixelThresholdADU, 0);
    this.hotpxHint = new Label(this);
-   this.hotpxHint.text = "Compte les pixels au-dessus du seuil et détecte les écarts.";
    this.hotpxHint.styleSheet = "QLabel { color: gray; font-style: italic; }";
 
    this.hotpxGroup = new GroupBox(this);
-   this.hotpxGroup.title = "Hot pixels";
    this.hotpxGroup.sizer = new VerticalSizer();
    this.hotpxGroup.sizer.margin = 6;
    this.hotpxGroup.sizer.spacing = 4;
@@ -1702,20 +1699,18 @@ function DarkAnalyzerDialog()
 
    // --- Saturation ---
    this.satPxMaxControl = this.createNumericControl(
-      "Pixels saturés max :", 10, 5000, this.params.saturatedPixelsMax, 0);
+      10, 5000, this.params.saturatedPixelsMax, 0);
    this.satHint = new Label(this);
-   this.satHint.text = "Nombre max de pixels saturés accepté par dark.";
    this.satHint.styleSheet = "QLabel { color: gray; font-style: italic; }";
 
    this.satGroup = new GroupBox(this);
-   this.satGroup.title = "Saturation";
    this.satGroup.sizer = new VerticalSizer();
    this.satGroup.sizer.margin = 6;
    this.satGroup.sizer.spacing = 4;
    this.satGroup.sizer.add(this.satHint);
    this.satGroup.sizer.add(this.satPxMaxControl);
 
-   // --- Layout 2 colonnes ---
+   // --- Two-column layout ---
    this.paramsCol1 = new VerticalSizer();
    this.paramsCol1.spacing = 6;
    this.paramsCol1.add(this.tempGroup);
@@ -1728,7 +1723,6 @@ function DarkAnalyzerDialog()
    this.paramsCol2.add(this.satGroup);
 
    this.paramsGroupBox = new GroupBox(this);
-   this.paramsGroupBox.title = "Seuils de détection";
    this.paramsGroupBox.sizer = new HorizontalSizer();
    this.paramsGroupBox.sizer.margin = 6;
    this.paramsGroupBox.sizer.spacing = 8;
@@ -1736,7 +1730,7 @@ function DarkAnalyzerDialog()
    this.paramsGroupBox.sizer.add(this.paramsCol2);
 
    // -----------------------------------------------------------------------
-   // Resume
+   // Summary
    // -----------------------------------------------------------------------
    this.summaryLabel = new Label(this);
    this.summaryLabel.text = "";
@@ -1745,31 +1739,23 @@ function DarkAnalyzerDialog()
    this.summaryLabel.styleSheet = "QLabel { font-size: 14pt; }";
 
    // -----------------------------------------------------------------------
-   // Boutons d'action
+   // Action buttons
    // -----------------------------------------------------------------------
    this.analyzeButton = new PushButton(this);
-   this.analyzeButton.text = "Analyser";
    this.analyzeButton.icon = this.scaledResource(":/icons/gears.png");
-   this.analyzeButton.toolTip = "Lancer l'analyse de tous les darks";
    this.analyzeButton.onClick = function() { self.runAnalysis(); };
 
    this.exportCsvButton = new PushButton(this);
-   this.exportCsvButton.text = "Exporter CSV...";
    this.exportCsvButton.icon = this.scaledResource(":/icons/document-csv.png");
-   this.exportCsvButton.toolTip = "Exporter les métriques de la dernière analyse dans un fichier CSV";
-   this.exportCsvButton.enabled = false;  // actif apres une analyse
+   this.exportCsvButton.enabled = false;  // enabled after an analysis
    this.exportCsvButton.onClick = function() { self.exportCsv(); };
 
    this.exclusionsButton = new PushButton(this);
-   this.exclusionsButton.text = "Exclusions WBPP...";
    this.exclusionsButton.icon = this.scaledResource(":/icons/window-export.png");
-   this.exclusionsButton.toolTip = "Liste des darks à écarter de l'empilement : " +
-      "export .txt ou déplacement vers un sous-répertoire rejected/";
-   this.exclusionsButton.enabled = false;  // actif apres une analyse
+   this.exclusionsButton.enabled = false;  // enabled after an analysis
    this.exclusionsButton.onClick = function() { self.showExclusions(); };
 
    this.closeButton = new PushButton(this);
-   this.closeButton.text = "Fermer";
    this.closeButton.icon = this.scaledResource(":/icons/close.png");
    this.closeButton.onClick = function() { self.cancel(); };
 
@@ -1783,16 +1769,19 @@ function DarkAnalyzerDialog()
    this.actionButtonsSizer.addStretch();
 
    // -----------------------------------------------------------------------
-   // Layout principal
+   // Main layout
    // -----------------------------------------------------------------------
    this.sizer = new VerticalSizer();
    this.sizer.margin = 8;
    this.sizer.spacing = 8;
-   this.sizer.add(this.helpLabel);
+   this.sizer.add(this.topSizer);
    this.sizer.add(this.filesGroupBox, 100);  // stretch
    this.sizer.add(this.paramsGroupBox);
    this.sizer.add(this.summaryLabel);
    this.sizer.add(this.actionButtonsSizer);
+
+   // Apply all translatable texts for the current language
+   this.applyLanguage();
 
    this.windowTitle = TITLE;
    this.setMinSize(850, 650);
@@ -1806,15 +1795,71 @@ DarkAnalyzerDialog.prototype = new Dialog();
 // METHODES DU DIALOG
 // ============================================================================
 
-DarkAnalyzerDialog.prototype.createNumericControl = function(label, minVal, maxVal, defaultVal, precision)
+DarkAnalyzerDialog.prototype.createNumericControl = function(minVal, maxVal, defaultVal, precision)
 {
+   // Labels are assigned by applyLanguage()
    var nc = new NumericControl(this);
-   nc.label.text = label;
    nc.label.minWidth = 200;
    nc.setRange(minVal, maxVal);
    nc.setPrecision(precision);
    nc.setValue(defaultVal);
    return nc;
+};
+
+DarkAnalyzerDialog.prototype.applyLanguage = function()
+{
+   // Assign every static translatable text for the current language.
+   // Called once at construction and again on each language switch.
+   this.helpLabel.text = tr("help");
+   this.langLabel.text = tr("lang.label");
+
+   this.fileTreeBox.setHeaderText(0, tr("col.num"));
+   this.fileTreeBox.setHeaderText(1, tr("col.file"));
+   this.fileTreeBox.setHeaderText(2, tr("col.temp"));
+   this.fileTreeBox.setHeaderText(3, tr("col.median"));
+   this.fileTreeBox.setHeaderText(4, tr("col.noise"));
+   this.fileTreeBox.setHeaderText(5, tr("col.hotpx"));
+   this.fileTreeBox.setHeaderText(6, tr("col.sat"));
+   this.fileTreeBox.setHeaderText(7, tr("col.state"));
+
+   this.filesGroupBox.title = tr("files.group");
+   this.addFilesButton.text = tr("btn.addFiles");
+   this.addFilesButton.toolTip = tr("btn.addFiles.tt");
+   this.addDirButton.text = tr("btn.addDir");
+   this.addDirButton.toolTip = tr("btn.addDir.tt");
+   this.removeButton.text = tr("btn.remove");
+   this.removeButton.toolTip = tr("btn.remove.tt");
+   this.clearButton.text = tr("btn.clear");
+   this.clearButton.toolTip = tr("btn.clear.tt");
+
+   this.paramsGroupBox.title = tr("params.group");
+   this.tempGroup.title = tr("temp.group");
+   this.tempHint.text = tr("temp.hint");
+   this.tempDevControl.label.text = tr("temp.max");
+   this.medianGroup.title = tr("median.group");
+   this.medianHint.text = tr("median.hint");
+   this.sigmaMedianControl.label.text = tr("lbl.sigma");
+   this.medDevWarnControl.label.text = tr("lbl.warnAdu");
+   this.medDevCritControl.label.text = tr("lbl.critAdu");
+   this.bruitGroup.title = tr("noise.group");
+   this.bruitHint.text = tr("noise.hint");
+   this.sigmaMadControl.label.text = tr("lbl.sigma");
+   this.madDevWarnControl.label.text = tr("lbl.warnAdu");
+   this.hotpxGroup.title = tr("hotpx.group");
+   this.hotpxHint.text = tr("hotpx.hint");
+   this.sigmaHotpxControl.label.text = tr("lbl.sigma");
+   this.hotPxThreshControl.label.text = tr("hotpx.threshold");
+   this.satGroup.title = tr("sat.group");
+   this.satHint.text = tr("sat.hint");
+   this.satPxMaxControl.label.text = tr("sat.max");
+
+   this.analyzeButton.text = tr("btn.analyze");
+   this.analyzeButton.toolTip = tr("btn.analyze.tt");
+   this.exportCsvButton.text = tr("btn.exportCsv");
+   this.exportCsvButton.toolTip = tr("btn.exportCsv.tt");
+   this.exclusionsButton.text = tr("btn.exclusions");
+   this.exclusionsButton.toolTip = tr("btn.exclusions.tt");
+   this.closeButton.text = tr("btn.close");
 };
 
 DarkAnalyzerDialog.prototype.addFile = function(filePath)
@@ -1911,10 +1956,10 @@ DarkAnalyzerDialog.prototype.updateRowMetrics = function(m)
    if (!node) return;
 
    if (m.error !== null) {
-      node.setText(2, "ERR");
-      node.setText(7, "Erreur");
+      node.setText(2, tr("state.err"));
+      node.setText(7, tr("state.error"));
       node.setIcon(7, new Bitmap(this.scaledResource(":/bullets/bullet-ball-glass-red.png")));
-      node.setToolTip(7, "Erreur: " + m.error);
+      node.setToolTip(7, tr("tt.error", m.error));
       for (var c = 0; c < 8; ++c)
          node.setBackgroundColor(c, 0xFFFF6666);
       return;
@@ -1937,25 +1982,28 @@ DarkAnalyzerDialog.prototype.updateRowSeverity = function(m)
    var iconPath;
    var sortKey;
    if (m.severity === "ok") {
-      color = 0xFF90EE90;  // vert clair
+      color = 0xFF90EE90;  // light green
       iconPath = ":/bullets/bullet-ball-glass-green.png";
-      sortKey = "Valide";
+      sortKey = tr("state.valid");
    }
    else if (m.severity === "warning") {
-      color = 0xFFFFFF66;  // jaune
+      color = 0xFFFFFF66;  // yellow
       iconPath = ":/bullets/bullet-ball-glass-yellow.png";
-      sortKey = "Alerte";
+      sortKey = tr("state.warning");
    }
    else {
-      color = 0xFFFF6666;  // rouge
+      color = 0xFFFF6666;  // red
       iconPath = ":/bullets/bullet-ball-glass-red.png";
-      sortKey = "Rejet";
+      sortKey = tr("state.rejected");
    }
 
    for (var c = 0; c < 8; ++c)
       node.setBackgroundColor(c, color);
 
-   // Icone couleur + cle de tri dans la colonne
+   // Colored icon + sort key in the status column. In both languages the
+   // status words keep the same alphabetical order (Alert/Alerte < Error/
+   // Erreur < Rejected/Rejet < Valid/Valide), so the severity sort of
+   // column 7 behaves identically.
    node.setText(7, sortKey);
    node.setIcon(7, new Bitmap(this.scaledResource(iconPath)));
    var tooltip = "";
@@ -1963,7 +2011,7 @@ DarkAnalyzerDialog.prototype.updateRowSeverity = function(m)
       tooltip = m.flags.join("\n");
    }
    else {
-      tooltip = "Aucune anomalie";
+      tooltip = tr("tt.noAnomaly");
    }
    node.setToolTip(7, tooltip);
 };
@@ -1973,7 +2021,7 @@ DarkAnalyzerDialog.prototype.runAnalysis = function()
    if (this.busy) return;
 
    if (this.filePaths.length === 0) {
-      (new MessageBox("Aucun fichier à analyser.\nAjoutez des fichiers FITS d'abord.",
+      (new MessageBox(tr("msg.noFiles"),
          TITLE, StdIcon_Warning, StdButton_Ok)).execute();
       return;
    }
@@ -1983,7 +2031,7 @@ DarkAnalyzerDialog.prototype.runAnalysis = function()
       this.doAnalysis();
    }
    finally {
-      this.setBusy(false);  // toujours deverrouiller, meme en cas d'erreur
+      this.setBusy(false);  // always unlock, even if the analysis failed
    }
 };
 
@@ -2045,22 +2093,22 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
       else nCrit++;
    }
 
-   // Resume colore
+   // Colored summary
    this.summaryLabel.text =
-      "<b><span style='color: #228B22;'>" + nOk + " valide" + (nOk > 1 ? "s" : "") + "</span></b>" +
+      "<b><span style='color: #228B22;'>" + nOk + " " + tr("sum.valid") + "</span></b>" +
       " / " +
-      "<b><span style='color: #CC8800;'>" + nWarn + " alerte" + (nWarn > 1 ? "s" : "") + "</span></b>" +
+      "<b><span style='color: #CC8800;'>" + nWarn + " " + tr("sum.warn") + "</span></b>" +
       " / " +
-      "<b><span style='color: #CC0000;'>" + nCrit + " rejet" + (nCrit > 1 ? "s" : "") + "</span></b>";
+      "<b><span style='color: #CC0000;'>" + nCrit + " " + tr("sum.crit") + "</span></b>";
 
-   // Trier par severite (critiques en haut)
+   // Sort by severity (criticals on top)
    this.fileTreeBox.sort(7, true);
    this.renumberRows();
 
-   // Rapport console complet
+   // Full console report
    generateConsoleReport(this.allMetrics, this.refs, this.params);
 
-   // L'export est reactive par setBusy(false) a la fin du run
+   // Export buttons are re-enabled by setBusy(false) at the end of the run
    processEvents();
 };
 
@@ -2069,14 +2117,14 @@ DarkAnalyzerDialog.prototype.exportCsv = function()
    if (this.allMetrics.length === 0) return;
 
    var sfd = new SaveFileDialog();
-   sfd.caption = "Exporter les métriques en CSV";
-   sfd.filters = [["Fichiers CSV", "*.csv"], ["Tous les fichiers", "*"]];
+   sfd.caption = tr("csv.caption");
+   sfd.filters = [[tr("csv.filter"), "*.csv"], [tr("filter.all"), "*"]];
    sfd.overwritePrompt = true;
 
-   // Proposer le repertoire du premier dark analyse
+   // Default to the directory of the first analyzed dark
    var first = this.allMetrics[0].filepath;
    sfd.initialPath = File.extractDrive(first) + File.extractDirectory(first) +
-      "/analyse_darks.csv";
+      "/darks_analysis.csv";
 
    if (!sfd.execute()) return;
 
@@ -2086,12 +2134,12 @@ DarkAnalyzerDialog.prototype.exportCsv = function()
 
    try {
       writeTextFileCompat(path, buildCsv(this.allMetrics));
-      console.noteln("Métriques exportées : " + path);
-      (new MessageBox("Métriques exportées :\n" + path,
+      console.noteln(tr("csv.doneLog", path));
+      (new MessageBox(tr("csv.done", path),
          TITLE, StdIcon_Information, StdButton_Ok)).execute();
    }
    catch (e) {
-      (new MessageBox("Échec de l'export CSV :\n" + e.message,
+      (new MessageBox(tr("csv.fail", e.message),
          TITLE, StdIcon_Error, StdButton_Ok)).execute();
    }
 };
@@ -2105,7 +2153,7 @@ DarkAnalyzerDialog.prototype.showExclusions = function()
       if (this.allMetrics[i].severity !== "ok") flagged++;
    }
    if (flagged === 0) {
-      (new MessageBox("Aucun dark à exclure — série 100% propre.",
+      (new MessageBox(tr("excl.none"),
          TITLE, StdIcon_Information, StdButton_Ok)).execute();
       return;
    }
@@ -2121,6 +2169,7 @@ DarkAnalyzerDialog.prototype.showExclusions = function()
 
 function main()
 {
+   loadLanguageSetting();
    var dialog = new DarkAnalyzerDialog();
    dialog.execute();
 }
