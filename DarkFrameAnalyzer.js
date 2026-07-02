@@ -22,7 +22,7 @@
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
 
-#define VERSION "1.1.0"
+#define VERSION "1.2.0"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
@@ -910,6 +910,209 @@ function writeTextFileCompat(path, text)
 
 
 // ============================================================================
+// DIALOG LISTE D'EXCLUSION WBPP
+// ============================================================================
+
+function ExclusionDialog(parentDialog, allMetrics)
+{
+   this.__base__ = Dialog;
+   this.__base__();
+
+   var self = this;
+
+   this.parentDialog = parentDialog;
+   this.allMetrics = allMetrics;
+   this.movedPaths = [];        // fichiers deja deplaces vers rejected/
+   this.includeWarnings = false;
+
+   this.helpLabel = new Label(this);
+   this.helpLabel.text = "Liste des darks à écarter de l'empilement. " +
+      "Copiez-la, exportez-la en .txt, ou déplacez les fichiers dans un " +
+      "sous-répertoire 'rejected' pour que WBPP ne les voie plus.";
+   this.helpLabel.wordWrapping = true;
+   this.helpLabel.useRichText = false;
+
+   this.includeWarningsCheck = new CheckBox(this);
+   this.includeWarningsCheck.text = "Inclure les alertes (par défaut : rejets seuls)";
+   this.includeWarningsCheck.checked = false;
+   this.includeWarningsCheck.toolTip = "Les rejets (critiques) sont toujours listés. " +
+      "Cochez pour ajouter les darks en alerte (warning).";
+   this.includeWarningsCheck.onCheck = function(checked)
+   {
+      self.includeWarnings = checked;
+      self.refreshList();
+   };
+
+   this.listTextBox = new TextBox(this);
+   this.listTextBox.readOnly = true;
+   this.listTextBox.setMinSize(700, 250);
+
+   this.countLabel = new Label(this);
+   this.countLabel.text = "";
+
+   this.exportTxtButton = new PushButton(this);
+   this.exportTxtButton.text = "Exporter .txt...";
+   this.exportTxtButton.icon = this.scaledResource(":/icons/document-text-export.png");
+   this.exportTxtButton.toolTip = "Écrire la liste (un chemin par ligne) dans un fichier texte";
+   this.exportTxtButton.onClick = function() { self.exportTxt(); };
+
+   this.moveButton = new PushButton(this);
+   this.moveButton.text = "Déplacer vers rejected/...";
+   this.moveButton.icon = this.scaledResource(":/icons/folder.png");
+   this.moveButton.toolTip = "Déplacer les fichiers listés dans un sous-répertoire " +
+      "'rejected' à côté des darks (avec confirmation)";
+   this.moveButton.onClick = function() { self.moveToRejected(); };
+
+   this.closeButton = new PushButton(this);
+   this.closeButton.text = "Fermer";
+   this.closeButton.icon = this.scaledResource(":/icons/close.png");
+   this.closeButton.onClick = function() { self.ok(); };
+
+   this.buttonsSizer = new HorizontalSizer();
+   this.buttonsSizer.spacing = 8;
+   this.buttonsSizer.add(this.exportTxtButton);
+   this.buttonsSizer.add(this.moveButton);
+   this.buttonsSizer.addStretch();
+   this.buttonsSizer.add(this.closeButton);
+
+   this.sizer = new VerticalSizer();
+   this.sizer.margin = 8;
+   this.sizer.spacing = 8;
+   this.sizer.add(this.helpLabel);
+   this.sizer.add(this.includeWarningsCheck);
+   this.sizer.add(this.listTextBox, 100);
+   this.sizer.add(this.countLabel);
+   this.sizer.add(this.buttonsSizer);
+
+   this.windowTitle = TITLE + " — Exclusions WBPP";
+   this.adjustToContents();
+
+   this.refreshList();
+}
+
+ExclusionDialog.prototype = new Dialog();
+
+ExclusionDialog.prototype.excludedMetrics = function()
+{
+   // Rejets (critiques + erreurs de lecture) toujours, alertes sur option.
+   // Les fichiers deja deplaces ne sont plus listes.
+   var list = [];
+   for (var i = 0; i < this.allMetrics.length; ++i) {
+      var m = this.allMetrics[i];
+      if (this.movedPaths.indexOf(m.filepath) >= 0) continue;
+      if (m.severity === "critical")
+         list.push(m);
+      else if (this.includeWarnings && m.severity === "warning")
+         list.push(m);
+   }
+   return list;
+};
+
+ExclusionDialog.prototype.refreshList = function()
+{
+   var list = this.excludedMetrics();
+   var paths = [];
+   for (var i = 0; i < list.length; ++i)
+      paths.push(list[i].filepath);
+
+   this.listTextBox.text = paths.join("\n");
+   this.countLabel.text = list.length + " fichier(s) à exclure" +
+      (this.movedPaths.length > 0 ?
+         " — " + this.movedPaths.length + " déjà déplacé(s)" : "");
+
+   this.exportTxtButton.enabled = list.length > 0;
+   this.moveButton.enabled = list.length > 0;
+};
+
+ExclusionDialog.prototype.exportTxt = function()
+{
+   var list = this.excludedMetrics();
+   if (list.length === 0) return;
+
+   var sfd = new SaveFileDialog();
+   sfd.caption = "Exporter la liste d'exclusion";
+   sfd.filters = [["Fichiers texte", "*.txt"], ["Tous les fichiers", "*"]];
+   sfd.overwritePrompt = true;
+
+   var first = list[0].filepath;
+   sfd.initialPath = File.extractDrive(first) + File.extractDirectory(first) +
+      "/exclusions_darks.txt";
+
+   if (!sfd.execute()) return;
+
+   var path = sfd.fileName;
+   if (File.extractExtension(path).length === 0)
+      path += ".txt";
+
+   var paths = [];
+   for (var i = 0; i < list.length; ++i)
+      paths.push(list[i].filepath);
+
+   try {
+      writeTextFileCompat(path, paths.join("\n") + "\n");
+      console.noteln("Liste d'exclusion exportée : " + path);
+      (new MessageBox("Liste d'exclusion exportée :\n" + path,
+         TITLE, StdIcon_Information, StdButton_Ok)).execute();
+   }
+   catch (e) {
+      (new MessageBox("Échec de l'export :\n" + e.message,
+         TITLE, StdIcon_Error, StdButton_Ok)).execute();
+   }
+};
+
+ExclusionDialog.prototype.moveToRejected = function()
+{
+   var list = this.excludedMetrics();
+   if (list.length === 0) return;
+
+   var msg = "Déplacer " + list.length + " fichier(s) vers un sous-répertoire " +
+      "'rejected' (créé à côté des darks) ?\n\n" +
+      "Les fichiers déplacés seront retirés de la liste d'analyse.";
+   var answer = (new MessageBox(msg, TITLE, StdIcon_Question,
+      StdButton_Yes, StdButton_No)).execute();
+   if (answer !== StdButton_Yes)
+      return;
+
+   var moved = 0;
+   var failed = [];
+
+   for (var i = 0; i < list.length; ++i) {
+      var m = list[i];
+      try {
+         var dir = File.extractDrive(m.filepath) + File.extractDirectory(m.filepath);
+         var rejDir = dir + "/rejected";
+         if (!File.directoryExists(rejDir))
+            File.createDirectory(rejDir);
+
+         var target = rejDir + "/" + m.filename;
+         if (File.exists(target))
+            throw new Error("un fichier du même nom existe déjà dans rejected/");
+
+         File.move(m.filepath, target);
+         this.movedPaths.push(m.filepath);
+         moved++;
+         console.noteln("Déplacé : " + m.filename + " -> " + target);
+
+         // Retirer le fichier de la liste du dialogue principal
+         this.parentDialog.removeFileByPath(m.filepath);
+      }
+      catch (e) {
+         failed.push(m.filename + " : " + e.message);
+      }
+   }
+
+   this.refreshList();
+
+   var report = moved + " fichier(s) déplacé(s) vers rejected/";
+   if (failed.length > 0)
+      report += "\n\nÉchecs (" + failed.length + ") :\n" + failed.join("\n");
+   (new MessageBox(report, TITLE,
+      failed.length > 0 ? StdIcon_Warning : StdIcon_Information,
+      StdButton_Ok)).execute();
+};
+
+
+// ============================================================================
 // DIALOG GUI
 // ============================================================================
 
@@ -1051,6 +1254,7 @@ function DarkAnalyzerDialog()
       self.refs = null;
       self.summaryLabel.text = "";
       self.exportCsvButton.enabled = false;
+      self.exclusionsButton.enabled = false;
    };
 
    this.fileButtonsSizer = new HorizontalSizer();
@@ -1206,6 +1410,14 @@ function DarkAnalyzerDialog()
    this.exportCsvButton.enabled = false;  // actif apres une analyse
    this.exportCsvButton.onClick = function() { self.exportCsv(); };
 
+   this.exclusionsButton = new PushButton(this);
+   this.exclusionsButton.text = "Exclusions WBPP...";
+   this.exclusionsButton.icon = this.scaledResource(":/icons/window-export.png");
+   this.exclusionsButton.toolTip = "Liste des darks à écarter de l'empilement : " +
+      "export .txt ou déplacement vers un sous-répertoire rejected/";
+   this.exclusionsButton.enabled = false;  // actif apres une analyse
+   this.exclusionsButton.onClick = function() { self.showExclusions(); };
+
    this.closeButton = new PushButton(this);
    this.closeButton.text = "Fermer";
    this.closeButton.icon = this.scaledResource(":/icons/close.png");
@@ -1216,6 +1428,7 @@ function DarkAnalyzerDialog()
    this.actionButtonsSizer.addStretch();
    this.actionButtonsSizer.add(this.analyzeButton);
    this.actionButtonsSizer.add(this.exportCsvButton);
+   this.actionButtonsSizer.add(this.exclusionsButton);
    this.actionButtonsSizer.add(this.closeButton);
    this.actionButtonsSizer.addStretch();
 
@@ -1274,6 +1487,23 @@ DarkAnalyzerDialog.prototype.addFile = function(filePath)
    // Colonnes 2-7 restent vides jusqu'a l'analyse
 };
 
+DarkAnalyzerDialog.prototype.removeFileByPath = function(filePath)
+{
+   for (var j = 0; j < this.filePaths.length; ++j) {
+      if (this.filePaths[j] === filePath) {
+         this.filePaths.splice(j, 1);
+         break;
+      }
+   }
+   for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
+      if (this.fileTreeBox.child(i).text(8) === filePath) {
+         this.fileTreeBox.remove(i);
+         break;
+      }
+   }
+   this.renumberRows();
+};
+
 DarkAnalyzerDialog.prototype.findNodeByPath = function(filePath)
 {
    for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
@@ -1302,6 +1532,7 @@ DarkAnalyzerDialog.prototype.setBusy = function(busy)
    var enabled = !busy;
    this.analyzeButton.enabled = enabled;
    this.exportCsvButton.enabled = enabled && this.allMetrics.length > 0;
+   this.exclusionsButton.enabled = enabled && this.allMetrics.length > 0;
    this.closeButton.enabled = enabled;
    this.addFilesButton.enabled = enabled;
    this.addDirButton.enabled = enabled;
@@ -1513,6 +1744,24 @@ DarkAnalyzerDialog.prototype.exportCsv = function()
       (new MessageBox("Échec de l'export CSV :\n" + e.message,
          TITLE, StdIcon_Error, StdButton_Ok)).execute();
    }
+};
+
+DarkAnalyzerDialog.prototype.showExclusions = function()
+{
+   if (this.allMetrics.length === 0) return;
+
+   var flagged = 0;
+   for (var i = 0; i < this.allMetrics.length; ++i) {
+      if (this.allMetrics[i].severity !== "ok") flagged++;
+   }
+   if (flagged === 0) {
+      (new MessageBox("Aucun dark à exclure — série 100% propre.",
+         TITLE, StdIcon_Information, StdButton_Ok)).execute();
+      return;
+   }
+
+   var dialog = new ExclusionDialog(this, this.allMetrics);
+   dialog.execute();
 };
 
 
