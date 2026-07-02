@@ -77,6 +77,34 @@ folder containing the file. Alternatively, run it once via
 A standalone Python reference implementation (`analyze_darks_series.py`,
 requires `numpy` + `astropy`) is included for scripted/CI usage.
 
+## Releasing — update-repository package
+
+Distribution through the CaeloWorks update repository relies on a
+standardized artifact built here and ingested by the site repository
+(which owns the aggregated, signed `updates.xri`). To build it:
+
+```bash
+RELEASE_DATE=YYYYMMDD scripts/build-update-package.sh <version>
+```
+
+This produces two files under `dist/`:
+
+- **`DarkFrameAnalyzer-<version>.zip`** — the install tree extracted as-is
+  by the PixInsight updater
+  (`src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.js`, nothing
+  else). The archive is reproducible (fixed entry order, mtimes and line
+  endings): its sha1 only changes when the script content changes.
+- **`update-package.json`** — the metadata contract for the site: name,
+  slug, version, `fileName`, `sha1`, type, `releaseDate`,
+  `piVersionRange`, title and `descriptionHtml`.
+
+The version is read from the `#define VERSION` line of
+`DarkFrameAnalyzer.js` (single source of truth); the build fails if the
+version passed as argument doesn't match.
+
+**Every GitHub release must attach three assets:** `DarkFrameAnalyzer.js`,
+the versioned zip and `update-package.json`.
+
 ## Links
 
 - 🌐 **Script page:** [pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer](https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer)
