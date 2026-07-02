@@ -79,6 +79,18 @@ folder containing the file. Alternatively, run it once via
 A standalone Python reference implementation (`analyze_darks_series.py`,
 requires `numpy` + `astropy`) is included for scripted/CI usage.
 
+## Development
+
+Logic-level tests (statistics, CSV, i18n, outlier detection) run under
+Node without PixInsight:
+
+```bash
+tests/run.sh
+```
+
+The same suite plus a packaging dry-run runs in CI on every pull request;
+GUI and image I/O are validated manually in PixInsight.
+
 ## Releasing — update-repository package
 
 Distribution through the CaeloWorks update repository relies on a

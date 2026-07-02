@@ -19,3 +19,6 @@ __pycache__/
 # Artefacts de distribution (générés)
 dist/
 
+
+# Sorties générées par le runner de tests
+tests/build/
