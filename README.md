@@ -76,9 +76,6 @@ folder containing the file. Alternatively, run it once via
 3. Click **Analyze**: each frame is classified **Valid** / **Alert** / **Rejected**, with the reasons in the status tooltip and the full report in the process console.
 4. Export the **CSV** for your records, and use **WBPP exclusions…** to keep the flagged frames out of integration.
 
-A standalone Python reference implementation (`analyze_darks_series.py`,
-requires `numpy` + `astropy`) is included for scripted/CI usage.
-
 ## Development
 
 <details>

@@ -22,6 +22,13 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - README rewritten in English on the CaeloWorks template.
 
+### Removed
+- The Python reference implementation (`analyze_darks_series.py`). It had
+  been frozen at the v1.0 behavior while the PixInsight script moved on
+  (spatial uniformity detection, extended anti-quantization safeguards,
+  CSV export, XISF); the versioned Node test suite now plays the
+  statistical-reference role. It remains available in the git history.
+
 ## [1.8.0] — 2026-07-02
 
 ### Added
