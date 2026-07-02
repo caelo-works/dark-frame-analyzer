@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run the test suite
+        run: tests/run.sh
+
+  packaging:
+    name: Packaging dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the update package twice and check reproducibility
+        run: |
+          RELEASE_DATE=20000101 scripts/build-update-package.sh
+          first=$(sha1sum dist/DarkFrameAnalyzer-*.zip | cut -d' ' -f1)
+          rm -rf dist
+          RELEASE_DATE=20000101 scripts/build-update-package.sh
+          second=$(sha1sum dist/DarkFrameAnalyzer-*.zip | cut -d' ' -f1)
+          echo "sha1: $first / $second"
+          test "$first" = "$second"
+      - name: Check the archive layout and the metadata contract
+        run: |
+          unzip -l dist/DarkFrameAnalyzer-*.zip | grep -q "src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.js"
+          python3 -m json.tool dist/update-package.json > /dev/null
