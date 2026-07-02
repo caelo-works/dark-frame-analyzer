@@ -1,5 +1,4 @@
 // tr() substitutions, fallback, and EN/FR table consistency
-global.Dialog = function () {};
 const assert = require("assert");
 const m = require(__dirname + "/build/module.js");
 

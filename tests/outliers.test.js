@@ -1,5 +1,4 @@
 // detectOutliers: every check, including the anti-quantization safeguards
-global.Dialog = function () {};
 const assert = require("assert");
 const m = require(__dirname + "/build/module.js");
 

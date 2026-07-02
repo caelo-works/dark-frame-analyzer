@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ['v*']
 
 jobs:
   tests:
@@ -22,14 +23,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build the update package twice and check reproducibility
+      # On a release tag, the tag version is passed to the build script so
+      # the tag-vs-#define VERSION contract is enforced before publishing.
+      - name: Build the update package (asserting the tag version on tags)
         run: |
-          RELEASE_DATE=20000101 scripts/build-update-package.sh
+          ARGS=()
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            ARGS+=("${GITHUB_REF_NAME#v}")
+          fi
+          RELEASE_DATE=20000101 scripts/build-update-package.sh "${ARGS[@]}"
           first=$(sha1sum dist/DarkFrameAnalyzer-*.zip | cut -d' ' -f1)
           rm -rf dist
-          RELEASE_DATE=20000101 scripts/build-update-package.sh
+          RELEASE_DATE=20000101 scripts/build-update-package.sh "${ARGS[@]}"
           second=$(sha1sum dist/DarkFrameAnalyzer-*.zip | cut -d' ' -f1)
           echo "sha1: $first / $second"
+          # Determinism check: two builds on this runner must be identical.
+          # (It guards against non-deterministic regressions in the build
+          # script — the published sha1 remains the release build's own.)
           test "$first" = "$second"
       - name: Check the archive layout and the metadata contract
         run: |

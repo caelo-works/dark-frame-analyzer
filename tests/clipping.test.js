@@ -1,5 +1,4 @@
 // iterativeClippedStats against an astropy-like sigma_clipped_stats reference
-global.Dialog = function () {};
 const assert = require("assert");
 const m = require(__dirname + "/build/module.js");
 

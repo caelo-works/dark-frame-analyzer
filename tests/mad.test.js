@@ -1,5 +1,4 @@
 // histogramMAD against the exact reference MAD (sorted deviations)
-global.Dialog = function () {};
 const assert = require("assert");
 const m = require(__dirname + "/build/module.js");
 

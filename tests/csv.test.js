@@ -1,5 +1,4 @@
 // buildCsv: column alignment, escaping, sorting, absent values
-global.Dialog = function () {};
 const assert = require("assert");
 const m = require(__dirname + "/build/module.js");
 
