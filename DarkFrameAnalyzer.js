@@ -22,7 +22,7 @@
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
 
-#define VERSION "1.0.2"
+#define VERSION "1.1.0"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
@@ -1050,6 +1050,7 @@ function DarkAnalyzerDialog()
       self.allMetrics = [];
       self.refs = null;
       self.summaryLabel.text = "";
+      self.exportCsvButton.enabled = false;
    };
 
    this.fileButtonsSizer = new HorizontalSizer();
@@ -1198,6 +1199,12 @@ function DarkAnalyzerDialog()
    this.analyzeButton.toolTip = "Lancer l'analyse de tous les darks";
    this.analyzeButton.onClick = function() { self.runAnalysis(); };
 
+   this.exportCsvButton = new PushButton(this);
+   this.exportCsvButton.text = "Exporter CSV...";
+   this.exportCsvButton.toolTip = "Exporter les métriques de la dernière analyse dans un fichier CSV";
+   this.exportCsvButton.enabled = false;  // actif apres une analyse
+   this.exportCsvButton.onClick = function() { self.exportCsv(); };
+
    this.closeButton = new PushButton(this);
    this.closeButton.text = "Fermer";
    this.closeButton.icon = this.scaledResource(":/icons/close.png");
@@ -1207,6 +1214,7 @@ function DarkAnalyzerDialog()
    this.actionButtonsSizer.spacing = 8;
    this.actionButtonsSizer.addStretch();
    this.actionButtonsSizer.add(this.analyzeButton);
+   this.actionButtonsSizer.add(this.exportCsvButton);
    this.actionButtonsSizer.add(this.closeButton);
    this.actionButtonsSizer.addStretch();
 
@@ -1292,6 +1300,7 @@ DarkAnalyzerDialog.prototype.setBusy = function(busy)
    this.busy = busy;
    var enabled = !busy;
    this.analyzeButton.enabled = enabled;
+   this.exportCsvButton.enabled = enabled && this.allMetrics.length > 0;
    this.closeButton.enabled = enabled;
    this.addFilesButton.enabled = enabled;
    this.addDirButton.enabled = enabled;
@@ -1469,10 +1478,40 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
    // Rapport console complet
    generateConsoleReport(this.allMetrics, this.refs, this.params);
 
-   // Activer l'export
-
-
+   // L'export est reactive par setBusy(false) a la fin du run
    processEvents();
+};
+
+DarkAnalyzerDialog.prototype.exportCsv = function()
+{
+   if (this.allMetrics.length === 0) return;
+
+   var sfd = new SaveFileDialog();
+   sfd.caption = "Exporter les métriques en CSV";
+   sfd.filters = [["Fichiers CSV", "*.csv"], ["Tous les fichiers", "*"]];
+   sfd.overwritePrompt = true;
+
+   // Proposer le repertoire du premier dark analyse
+   var first = this.allMetrics[0].filepath;
+   sfd.initialPath = File.extractDrive(first) + File.extractDirectory(first) +
+      "/analyse_darks.csv";
+
+   if (!sfd.execute()) return;
+
+   var path = sfd.fileName;
+   if (File.extractExtension(path).length === 0)
+      path += ".csv";
+
+   try {
+      writeTextFileCompat(path, buildCsv(this.allMetrics));
+      console.noteln("Métriques exportées : " + path);
+      (new MessageBox("Métriques exportées :\n" + path,
+         TITLE, StdIcon_Information, StdButton_Ok)).execute();
+   }
+   catch (e) {
+      (new MessageBox("Échec de l'export CSV :\n" + e.message,
+         TITLE, StdIcon_Error, StdButton_Ok)).execute();
+   }
 };
 
 
