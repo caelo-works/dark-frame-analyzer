@@ -1667,6 +1667,8 @@ function DarkAnalyzerDialog()
    if (typeof this.fileTreeBox.hideColumn === "function")
       this.fileTreeBox.hideColumn(COL_PATH);
    this.fileTreeBox.setMinSize(800, 300);
+   // Keep the File column absorbing the free width on window resize
+   this.fileTreeBox.onResize = function() { self.fitFileColumn(); };
 
    // -----------------------------------------------------------------------
    // File buttons
@@ -2028,6 +2030,7 @@ DarkAnalyzerDialog.prototype.addFile = function(filePath)
    node.setText(COL_PATH, filePath);  // unique row identifier
    // Columns 2-COL_DELTA stay empty until the analysis
    this.fileTreeBox.adjustColumnWidthToContents(0);
+   this.fitFileColumn();
 };
 
 DarkAnalyzerDialog.prototype.removeFileByPath = function(filePath)
@@ -2057,6 +2060,30 @@ DarkAnalyzerDialog.prototype.findNodeByPath = function(filePath)
    return null;
 };
 
+DarkAnalyzerDialog.prototype.fitColumns = function()
+{
+   // Fit every data column to its content, then let the File column
+   // absorb whatever width remains (no horizontal scrollbar).
+   for (var c = 0; c < NUM_COLS; ++c) {
+      if (c !== 1 && c !== COL_PATH)
+         this.fileTreeBox.adjustColumnWidthToContents(c);
+   }
+   this.fitFileColumn();
+};
+
+DarkAnalyzerDialog.prototype.fitFileColumn = function()
+{
+   var others = 0;
+   for (var c = 0; c < NUM_COLS; ++c) {
+      if (c !== 1)
+         others += this.fileTreeBox.columnWidth(c);
+   }
+   // Slack for the vertical scrollbar and the frame borders
+   var available = this.fileTreeBox.width - others - 40;
+   if (available < 150) available = 150;
+   this.fileTreeBox.setColumnWidth(1, available);
+};
+
 DarkAnalyzerDialog.prototype.renumberRows = function()
 {
    // Right-aligned numbers so the text sort of the # column matches
@@ -2066,6 +2093,7 @@ DarkAnalyzerDialog.prototype.renumberRows = function()
    }
    // Fixed widths get elided ("...") on scaled displays: fit to content
    this.fileTreeBox.adjustColumnWidthToContents(0);
+   this.fitFileColumn();
 };
 
 DarkAnalyzerDialog.prototype.setBusy = function(busy)
@@ -2256,7 +2284,7 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
    // Sort by severity (criticals on top)
    this.fileTreeBox.sort(COL_STATE, true);
    this.renumberRows();
-   this.fileTreeBox.adjustColumnWidthToContents(COL_STATE);
+   this.fitColumns();
 
    // Full console report
    generateConsoleReport(this.allMetrics, this.refs, this.params);
