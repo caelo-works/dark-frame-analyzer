@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: CaeloWorks PixInsight scripts
+    url: https://pixinsight-scripts.caelo.works/en
+    about: Documentation and the full script catalogue.

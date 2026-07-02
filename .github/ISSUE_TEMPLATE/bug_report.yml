@@ -1,0 +1,57 @@
+name: Bug report
+description: Something is wrong with Dark Frame Analyzer
+labels: ["bug"]
+body:
+  - type: input
+    id: script-version
+    attributes:
+      label: Script version
+      description: Shown in the dialog title bar (e.g. v1.8.0).
+      placeholder: "1.8.0"
+    validations:
+      required: true
+  - type: input
+    id: pixinsight-version
+    attributes:
+      label: PixInsight version
+      placeholder: "1.9.3 Lockhart"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add 30 FITS darks (camera X, gain Y, exposure Z)
+        2. Click Analyze
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Process console output
+      description: Copy the relevant part of the PixInsight process console (automatically formatted as code).
+      render: text
+  - type: textarea
+    id: frames
+    attributes:
+      label: Frame details (if relevant)
+      description: Camera model, sensor, bit depth, exposure, gain/offset, FITS or XISF.
