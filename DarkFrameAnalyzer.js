@@ -22,7 +22,7 @@
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
 
-#define VERSION "1.0.0"
+#define VERSION "1.0.1"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
@@ -1170,8 +1170,10 @@ DarkAnalyzerDialog.prototype.findNodeByPath = function(filePath)
 
 DarkAnalyzerDialog.prototype.renumberRows = function()
 {
+   // Numeros cales a droite pour que le tri texte de la colonne #
+   // respecte l'ordre numerique ("   2" avant "  10")
    for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
-      this.fileTreeBox.child(i).setText(0, String(i + 1));
+      this.fileTreeBox.child(i).setText(0, padLeft(String(i + 1), 4));
    }
 };
 
@@ -1188,9 +1190,9 @@ DarkAnalyzerDialog.prototype.readParamsFromGUI = function()
    this.params.madAbsDeviationWarn = this.madDevWarnControl.value;
 };
 
-DarkAnalyzerDialog.prototype.updateRowMetrics = function(index, m)
+DarkAnalyzerDialog.prototype.updateRowMetrics = function(m)
 {
-   var node = this.fileTreeBox.child(index);
+   var node = this.findNodeByPath(m.filepath);
    if (!node) return;
 
    if (m.error !== null) {
@@ -1211,9 +1213,9 @@ DarkAnalyzerDialog.prototype.updateRowMetrics = function(index, m)
    node.setText(7, "...");
 };
 
-DarkAnalyzerDialog.prototype.updateRowSeverity = function(index, m)
+DarkAnalyzerDialog.prototype.updateRowSeverity = function(m)
 {
-   var node = this.fileTreeBox.child(index);
+   var node = this.findNodeByPath(m.filepath);
    if (!node) return;
 
    var color;
@@ -1293,7 +1295,7 @@ DarkAnalyzerDialog.prototype.runAnalysis = function()
       this.allMetrics.push(metrics);
 
       // Mise a jour immediate de la ligne dans le TreeBox
-      this.updateRowMetrics(i, metrics);
+      this.updateRowMetrics(metrics);
       processEvents();  // Rafraichir l'interface
    }
 
@@ -1309,7 +1311,7 @@ DarkAnalyzerDialog.prototype.runAnalysis = function()
    // Phase 3 : Mise a jour des couleurs de severite
    var nOk = 0, nWarn = 0, nCrit = 0;
    for (var i = 0; i < this.allMetrics.length; ++i) {
-      this.updateRowSeverity(i, this.allMetrics[i]);
+      this.updateRowSeverity(this.allMetrics[i]);
       if (this.allMetrics[i].severity === "ok") nOk++;
       else if (this.allMetrics[i].severity === "warning") nWarn++;
       else nCrit++;
@@ -1325,6 +1327,7 @@ DarkAnalyzerDialog.prototype.runAnalysis = function()
 
    // Trier par severite (critiques en haut)
    this.fileTreeBox.sort(7, true);
+   this.renumberRows();
 
    // Rapport console complet
    generateConsoleReport(this.allMetrics, this.refs, this.params);
