@@ -1,0 +1,16 @@
+# Métadonnées Windows/WSL
+*Zone.Identifier
+
+# Captures d'écran de travail
+*.png
+
+# Données d'astro (jamais versionnées)
+*.fits
+*.fit
+*.FITS
+*.FIT
+*.xisf
+
+# Divers
+__pycache__/
+*.pyc
