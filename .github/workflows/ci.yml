@@ -44,4 +44,20 @@ jobs:
       - name: Check the archive layout and the metadata contract
         run: |
           unzip -l dist/DarkFrameAnalyzer-*.zip | grep -q "src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.js"
+          # An unsigned zip must contain exactly one entry — nothing else
+          # may ever leak into a published package
+          test "$(unzip -Z1 dist/DarkFrameAnalyzer-*.zip | wc -l)" -eq 1
           python3 -m json.tool dist/update-package.json > /dev/null
+      - name: Exercise the signing path with a stub PixInsight
+        run: |
+          stub="$(mktemp -d)"
+          printf '#!/usr/bin/env bash\n[ -n "$XSSK_PASS" ] || { echo "stub: XSSK_PASS missing" >&2; exit 1; }\necho stub-signature > "%s/dist/stage/DarkFrameAnalyzer.xsgn"\n' "$GITHUB_WORKSPACE" > "$stub/fake-pi"
+          chmod +x "$stub/fake-pi"
+          touch "$stub/fake.xssk"
+          rm -rf dist
+          XSSK_PATH="$stub/fake.xssk" XSSK_PASS=stub-password PIXINSIGHT_BIN="$stub/fake-pi" \
+            RELEASE_DATE=20000101 scripts/build-update-package.sh
+          # Signed zip: exactly the two expected entries, and no password leak
+          test "$(unzip -Z1 dist/DarkFrameAnalyzer-*.zip | wc -l)" -eq 2
+          unzip -Z1 dist/DarkFrameAnalyzer-*.zip | grep -q '\.xsgn$'
+          ! grep -r "stub-password" dist

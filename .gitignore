@@ -24,6 +24,8 @@ dist/
 tests/build/
 
 # Signature de code PixInsight : la clé ne doit JAMAIS entrer dans ce
-# repo public ; les signatures sont générées au packaging
+# repo public. *.xsgn couvre surtout une signature manuelle du script à
+# la racine (Script > Development > CodeSign) — celle du packaging vit
+# sous dist/, déjà ignoré.
 *.xssk
 *.xsgn

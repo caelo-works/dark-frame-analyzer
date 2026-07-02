@@ -135,8 +135,12 @@ releases will be signed by pointing the build at the key file:
 XSSK_PATH=/path/to/key.xssk scripts/build-update-package.sh <version>
 ```
 
-The key password is prompted interactively and never stored anywhere;
-signing runs inside a local PixInsight installation and adds the `.xsgn`
+The key password is prompted on the terminal and handed to PixInsight as
+a command-scoped environment variable — the build never writes it to a
+file, a log or a command line. Presetting `XSSK_PASS` in the environment
+skips the prompt (for automation); if you do that, the value lives in
+*your* shell history or CI configuration, outside this guarantee.
+Signing runs inside a local PixInsight installation and adds the `.xsgn`
 next to the script in the zip. A signed zip is not byte-reproducible
 across signings (the signature is timestamped): each signing produces a
 new sha1, which the update repository re-ingests. **Until the identity is
