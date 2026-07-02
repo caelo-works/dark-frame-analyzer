@@ -842,7 +842,10 @@ function DarkAnalyzerDialog()
    this.fileTreeBox.headerSorting = true;
    this.fileTreeBox.multipleSelection = true;
    this.fileTreeBox.sort(1, false);
-   this.fileTreeBox.numberOfColumns = 8;
+   // La colonne 8 (cachée) contient le chemin complet du fichier :
+   // c'est l'identifiant unique de chaque ligne. Les tris (auto ou via
+   // en-têtes) réordonnent les lignes, donc jamais d'accès par index.
+   this.fileTreeBox.numberOfColumns = 9;
    this.fileTreeBox.setHeaderText(0, "#");
    this.fileTreeBox.setHeaderText(1, "Fichier");
    this.fileTreeBox.setHeaderText(2, "Temp.");
@@ -851,6 +854,7 @@ function DarkAnalyzerDialog()
    this.fileTreeBox.setHeaderText(5, "Hot px");
    this.fileTreeBox.setHeaderText(6, "Sat.");
    this.fileTreeBox.setHeaderText(7, "Etat");
+   this.fileTreeBox.setHeaderText(8, "");
 
    this.fileTreeBox.setColumnWidth(0, 50);
    this.fileTreeBox.setColumnWidth(1, 330);
@@ -860,6 +864,9 @@ function DarkAnalyzerDialog()
    this.fileTreeBox.setColumnWidth(5, 60);
    this.fileTreeBox.setColumnWidth(6, 50);
    this.fileTreeBox.setColumnWidth(7, 90);
+   this.fileTreeBox.setColumnWidth(8, 0);
+   if (typeof this.fileTreeBox.hideColumn === "function")
+      this.fileTreeBox.hideColumn(8);
    this.fileTreeBox.setMinSize(800, 300);
 
    // -----------------------------------------------------------------------
@@ -907,10 +914,19 @@ function DarkAnalyzerDialog()
    this.removeButton.toolTip = "Supprimer les fichiers sélectionnés";
    this.removeButton.onClick = function()
    {
-      // Supprimer les lignes selectionnees (en partant de la fin)
+      // Supprimer les lignes selectionnees (en partant de la fin).
+      // On retrouve le fichier par son chemin (colonne cachee), pas par
+      // l'index de ligne : apres un tri les deux ne correspondent plus.
       for (var i = self.fileTreeBox.numberOfChildren - 1; i >= 0; --i) {
-         if (self.fileTreeBox.child(i).selected) {
-            self.filePaths.splice(i, 1);
+         var node = self.fileTreeBox.child(i);
+         if (node.selected) {
+            var path = node.text(8);
+            for (var j = 0; j < self.filePaths.length; ++j) {
+               if (self.filePaths[j] === path) {
+                  self.filePaths.splice(j, 1);
+                  break;
+               }
+            }
             self.fileTreeBox.remove(i);
          }
       }
@@ -1135,10 +1151,21 @@ DarkAnalyzerDialog.prototype.addFile = function(filePath)
    var num = this.filePaths.length;
    var fname = File.extractName(filePath) + File.extractExtension(filePath);
 
-   node.setText(0, String(num));
+   node.setText(0, padLeft(String(num), 4));
    node.setAlignment(0, TextAlign_Left);
    node.setText(1, fname);
-   // Colonnes 2-8 restent vides jusqu'a l'analyse
+   node.setText(8, filePath);  // identifiant unique de la ligne
+   // Colonnes 2-7 restent vides jusqu'a l'analyse
+};
+
+DarkAnalyzerDialog.prototype.findNodeByPath = function(filePath)
+{
+   for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
+      var node = this.fileTreeBox.child(i);
+      if (node.text(8) === filePath)
+         return node;
+   }
+   return null;
 };
 
 DarkAnalyzerDialog.prototype.renumberRows = function()
