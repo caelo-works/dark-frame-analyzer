@@ -22,7 +22,7 @@
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
 
-#define VERSION "1.7.0"
+#define VERSION "1.8.0"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
@@ -122,6 +122,8 @@ var STRINGS = {
       "btn.exclusions":    "WBPP exclusions...",
       "btn.exclusions.tt": "List of darks to keep out of integration: .txt export or move to a rejected/ subdirectory",
       "btn.close":         "Close",
+      "btn.defaults":      "Defaults",
+      "btn.defaults.tt":   "Restore all detection thresholds to their default values",
       "msg.noFiles":       "No files to analyze.\nAdd dark frames first.",
       "err.open":          "Unable to open the file",
       "state.valid":       "Valid",
@@ -285,6 +287,8 @@ var STRINGS = {
       "btn.exclusions":    "Exclusions WBPP...",
       "btn.exclusions.tt": "Liste des darks à écarter de l'empilement : export .txt ou déplacement vers un sous-répertoire rejected/",
       "btn.close":         "Fermer",
+      "btn.defaults":      "Défauts",
+      "btn.defaults.tt":   "Restaurer tous les seuils de détection à leurs valeurs par défaut",
       "msg.noFiles":       "Aucun fichier à analyser.\nAjoutez des darks d'abord.",
       "err.open":          "Impossible d'ouvrir le fichier",
       "state.valid":       "Valide",
@@ -400,6 +404,23 @@ var LANG_CODES = ["en", "fr"];
 var LANG_NAMES = ["English", "Français"];
 
 var gLanguage = "en";  // default; overridden by the saved setting
+
+function loadParamsFromSettings(params)
+{
+   // Overrides params with the values saved in a previous session.
+   // Only keys known to DEFAULT_PARAMS are read.
+   for (var key in DEFAULT_PARAMS) {
+      var v = Settings.read(SETTINGS_KEY_BASE + "/" + key, DataType_Double);
+      if (Settings.lastReadOK && v !== null && isFinite(v))
+         params[key] = v;
+   }
+}
+
+function saveParamsToSettings(params)
+{
+   for (var key in DEFAULT_PARAMS)
+      Settings.write(SETTINGS_KEY_BASE + "/" + key, DataType_Double, params[key]);
+}
 
 function loadLanguageSetting()
 {
@@ -1601,10 +1622,12 @@ function DarkAnalyzerDialog()
 
    var self = this;
 
-   // Working copy of the current parameters
+   // Working copy of the current parameters: defaults, then the values
+   // saved from the previous session
    this.params = {};
    for (var key in DEFAULT_PARAMS)
       this.params[key] = DEFAULT_PARAMS[key];
+   loadParamsFromSettings(this.params);
 
    // Data
    this.filePaths = [];
@@ -1874,12 +1897,25 @@ function DarkAnalyzerDialog()
    this.paramsCol2.add(this.hotpxGroup);
    this.paramsCol2.add(this.satGroup);
 
+   this.defaultsButton = new PushButton(this);
+   this.defaultsButton.icon = this.scaledResource(":/icons/undo.png");
+   this.defaultsButton.onClick = function() { self.resetParamsToDefaults(); };
+
+   this.paramsColumnsSizer = new HorizontalSizer();
+   this.paramsColumnsSizer.spacing = 8;
+   this.paramsColumnsSizer.add(this.paramsCol1);
+   this.paramsColumnsSizer.add(this.paramsCol2);
+
+   this.defaultsSizer = new HorizontalSizer();
+   this.defaultsSizer.addStretch();
+   this.defaultsSizer.add(this.defaultsButton);
+
    this.paramsGroupBox = new GroupBox(this);
-   this.paramsGroupBox.sizer = new HorizontalSizer();
+   this.paramsGroupBox.sizer = new VerticalSizer();
    this.paramsGroupBox.sizer.margin = 6;
-   this.paramsGroupBox.sizer.spacing = 8;
-   this.paramsGroupBox.sizer.add(this.paramsCol1);
-   this.paramsGroupBox.sizer.add(this.paramsCol2);
+   this.paramsGroupBox.sizer.spacing = 6;
+   this.paramsGroupBox.sizer.add(this.paramsColumnsSizer);
+   this.paramsGroupBox.sizer.add(this.defaultsSizer);
 
    // -----------------------------------------------------------------------
    // Summary
@@ -2017,6 +2053,31 @@ DarkAnalyzerDialog.prototype.applyLanguage = function()
    this.exclusionsButton.text = tr("btn.exclusions");
    this.exclusionsButton.toolTip = tr("btn.exclusions.tt");
    this.closeButton.text = tr("btn.close");
+   this.defaultsButton.text = tr("btn.defaults");
+   this.defaultsButton.toolTip = tr("btn.defaults.tt");
+};
+
+DarkAnalyzerDialog.prototype.applyParamsToGUI = function()
+{
+   this.sigmaMedianControl.setValue(this.params.outlierSigmaMedian);
+   this.sigmaMadControl.setValue(this.params.outlierSigmaMad);
+   this.sigmaHotpxControl.setValue(this.params.outlierSigmaHotpx);
+   this.sigmaUnifControl.setValue(this.params.outlierSigmaUniformity);
+   this.tempDevControl.setValue(this.params.tempDeviationMax);
+   this.hotPxThreshControl.setValue(this.params.hotPixelThresholdADU);
+   this.satPxMaxControl.setValue(this.params.saturatedPixelsMax);
+   this.medDevWarnControl.setValue(this.params.medianAbsDeviationWarn);
+   this.medDevCritControl.setValue(this.params.medianAbsDeviationCrit);
+   this.madDevWarnControl.setValue(this.params.madAbsDeviationWarn);
+   this.unifDeltaMaxControl.setValue(this.params.uniformityDeltaMax);
+};
+
+DarkAnalyzerDialog.prototype.resetParamsToDefaults = function()
+{
+   for (var key in DEFAULT_PARAMS)
+      this.params[key] = DEFAULT_PARAMS[key];
+   this.applyParamsToGUI();
+   saveParamsToSettings(this.params);
 };
 
 DarkAnalyzerDialog.prototype.addFile = function(filePath)
@@ -2226,8 +2287,9 @@ DarkAnalyzerDialog.prototype.runAnalysis = function()
 
 DarkAnalyzerDialog.prototype.doAnalysis = function()
 {
-   // Read the parameters from the GUI
+   // Read the parameters from the GUI and remember them for next sessions
    this.readParamsFromGUI();
+   saveParamsToSettings(this.params);
 
    // Reset the results
    this.allMetrics = [];
