@@ -22,7 +22,7 @@
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
 
-#define VERSION "1.6.0"
+#define VERSION "1.7.0"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
@@ -70,7 +70,7 @@ var STRINGS = {
 
    en: {
       // Main dialog
-      "help":              "Add dark FITS files, configure the detection thresholds, then run the analysis.",
+      "help":              "Add dark frames (FITS or XISF), configure the detection thresholds, then run the analysis.",
       "lang.label":        "Language:",
       "col.num":           "#",
       "col.file":          "File",
@@ -90,8 +90,10 @@ var STRINGS = {
       "btn.remove.tt":     "Remove the selected files",
       "btn.clear":         "Clear all",
       "btn.clear.tt":      "Remove all files",
-      "dlg.selectFiles":   "Select dark FITS files",
+      "dlg.selectFiles":   "Select dark frames",
+      "dlg.darkFilter":    "Dark frames (FITS, XISF)",
       "dlg.fitsFilter":    "FITS files",
+      "dlg.xisfFilter":    "XISF files",
       "dlg.selectDir":     "Select a directory of darks",
       "params.group":      "Detection thresholds",
       "temp.group":        "Temperature",
@@ -120,7 +122,7 @@ var STRINGS = {
       "btn.exclusions":    "WBPP exclusions...",
       "btn.exclusions.tt": "List of darks to keep out of integration: .txt export or move to a rejected/ subdirectory",
       "btn.close":         "Close",
-      "msg.noFiles":       "No files to analyze.\nAdd FITS files first.",
+      "msg.noFiles":       "No files to analyze.\nAdd dark frames first.",
       "err.open":          "Unable to open the file",
       "state.valid":       "Valid",
       "state.warning":     "Alert",
@@ -231,7 +233,7 @@ var STRINGS = {
 
    fr: {
       // Dialogue principal
-      "help":              "Ajoutez des fichiers FITS de darks, configurez les seuils, puis lancez l'analyse.",
+      "help":              "Ajoutez des darks (FITS ou XISF), configurez les seuils, puis lancez l'analyse.",
       "lang.label":        "Langue :",
       "col.num":           "#",
       "col.file":          "Fichier",
@@ -251,8 +253,10 @@ var STRINGS = {
       "btn.remove.tt":     "Supprimer les fichiers sélectionnés",
       "btn.clear":         "Tout vider",
       "btn.clear.tt":      "Supprimer tous les fichiers",
-      "dlg.selectFiles":   "Sélectionner des darks FITS",
+      "dlg.selectFiles":   "Sélectionner des darks",
+      "dlg.darkFilter":    "Darks (FITS, XISF)",
       "dlg.fitsFilter":    "Fichiers FITS",
+      "dlg.xisfFilter":    "Fichiers XISF",
       "dlg.selectDir":     "Sélectionner un répertoire de darks",
       "params.group":      "Seuils de détection",
       "temp.group":        "Température",
@@ -281,7 +285,7 @@ var STRINGS = {
       "btn.exclusions":    "Exclusions WBPP...",
       "btn.exclusions.tt": "Liste des darks à écarter de l'empilement : export .txt ou déplacement vers un sous-répertoire rejected/",
       "btn.close":         "Fermer",
-      "msg.noFiles":       "Aucun fichier à analyser.\nAjoutez des fichiers FITS d'abord.",
+      "msg.noFiles":       "Aucun fichier à analyser.\nAjoutez des darks d'abord.",
       "err.open":          "Impossible d'ouvrir le fichier",
       "state.valid":       "Valide",
       "state.warning":     "Alerte",
@@ -1679,7 +1683,11 @@ function DarkAnalyzerDialog()
       var ofd = new OpenFileDialog();
       ofd.multipleSelections = true;
       ofd.caption = tr("dlg.selectFiles");
-      ofd.filters = [[tr("dlg.fitsFilter"), "*.fits", "*.fit", "*.FITS", "*.FIT"]];
+      ofd.filters = [
+         [tr("dlg.darkFilter"), "*.fits", "*.fit", "*.xisf"],
+         [tr("dlg.fitsFilter"), "*.fits", "*.fit"],
+         [tr("dlg.xisfFilter"), "*.xisf"]
+      ];
       if (ofd.execute()) {
          for (var i = 0; i < ofd.fileNames.length; ++i)
             self.addFile(ofd.fileNames[i]);
@@ -1694,7 +1702,7 @@ function DarkAnalyzerDialog()
       if (gdd.execute()) {
          var dir = gdd.directory;
          var search = new FileFind();
-         var extensions = [".fits", ".fit", ".FITS", ".FIT"];
+         var extensions = [".fits", ".fit", ".xisf", ".FITS", ".FIT", ".XISF"];
          for (var e = 0; e < extensions.length; ++e) {
             if (search.begin(dir + "/*" + extensions[e])) {
                do {
