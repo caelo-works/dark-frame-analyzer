@@ -5,7 +5,12 @@
 // Analyzes a series of dark FITS frames, computes key statistics for each
 // frame and identifies outliers to exclude before WBPP integration.
 //
-// ATR585C calibration pipeline
+// Copyright (C) 2026 CaeloWorks
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version. See <https://www.gnu.org/licenses/gpl-3.0>.
 // ============================================================================
 
 #feature-id    Utilities > DarkFrameAnalyzer

@@ -1,69 +1,100 @@
+<div align="center">
+
+[![CaeloWorks · PixInsight Scripts](https://pixinsight-scripts.caelo.works/assets/readme-banner.png)](https://pixinsight-scripts.caelo.works)
+
 # Dark Frame Analyzer
 
-A PixInsight script that analyzes a series of dark frames, computes key
-statistics for each frame, and flags out-of-spec darks to exclude before
-integration in WBPP.
+### Analyze your dark frame series and reject out-of-spec frames before WBPP integration
 
-Calibrated for IMX585-class sensors (ATR585C), but every detection
-threshold is adjustable from the GUI.
+[![Version](https://img.shields.io/badge/version-1.8.0-22d3ee?style=for-the-badge&labelColor=0f172a)](https://github.com/caelo-works/dark-frame-analyzer/releases/latest)
+[![PixInsight](https://img.shields.io/badge/PixInsight-%E2%89%A5%201.9.0-67e8f9?style=for-the-badge&labelColor=0f172a)](https://pixinsight.com/)
+[![Status](https://img.shields.io/badge/status-stable-34d399?style=for-the-badge&labelColor=0f172a)](https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer)
+[![License](https://img.shields.io/badge/license-GPL--3.0-94a3b8?style=for-the-badge&labelColor=0f172a)](LICENSE)
+[![Website](https://img.shields.io/badge/%E2%86%92%20see%20all%20scripts-pixinsight--scripts.caelo.works-0f172a?style=for-the-badge&labelColor=22d3ee)](https://pixinsight-scripts.caelo.works)
 
-## Contents
+</div>
 
-| File | Description |
+---
+
+## Overview
+
+A bad dark silently degrades your master dark — and everything calibrated
+with it. Dark Frame Analyzer inspects a whole series at once, computes
+robust per-frame statistics (clipped median, exact MAD, hot pixels, thermal
+drift, spatial uniformity) and flags the frames that don't belong, so you
+integrate only clean darks in WBPP. Results appear in a color-coded table,
+a detailed console report, a CSV export and a ready-to-use exclusion list.
+
+> 📖 **Full details, screenshots & docs:** **[pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer](https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer)**
+
+## Screenshots
+
+<div align="center">
+
+![Main dialog with the analyzed dark series and color-coded status](https://pixinsight-scripts.caelo.works/assets/scripts/dark-frame-analyzer-1-dialog.webp)
+
+![WBPP exclusions dialog with the list of rejected frames](https://pixinsight-scripts.caelo.works/assets/scripts/dark-frame-analyzer-2-exclusions.webp)
+
+</div>
+
+## Features
+
+| | |
 |---|---|
-| `DarkFrameAnalyzer.js` | PixInsight (PJSR) script with GUI — main version |
-| `analyze_darks_series.py` | Python reference implementation (CLI), requires `numpy` + `astropy` |
+| ✨ **Robust outlier detection** | Series-relative statistics (median, exact MAD, hot pixels, thermal drift, spatial uniformity) with anti-quantization safeguards — ADC quantization steps never become false positives |
+| ⚡ **Native-speed statistics** | Histograms and iterative sigma clipping (astropy-style, converged) computed by PixInsight's C++ engine — a 50-frame series is analyzed in seconds |
+| 🛠️ **WBPP-ready workflow** | Exclusion list as text or file, or one click to move rejected frames to a `rejected/` subdirectory WBPP never sees |
+| 📊 **Full reporting** | Color-coded results table with per-frame tooltips, detailed console report, CSV export with stable machine-readable headers |
+| 🎛️ **Tunable & persistent** | Every detection threshold is adjustable, remembered across sessions, and restorable with one *Defaults* click |
+| 🌍 **Bilingual UI** | English and French, switchable live, choice remembered — FITS and XISF input |
 
 ## Installation
 
-Either add the directory containing `DarkFrameAnalyzer.js` through
-`Script > Feature Scripts...` (the script then appears under
-`Script > Utilities > DarkFrameAnalyzer`), or run it directly with
-`Script > Execute Script File...`.
+### From the CaeloWorks update repository (recommended)
 
-## Usage
+1. In PixInsight, open **Resources → Updates → Manage Repositories**.
+2. Click **Add** and enter the repository URL: `https://pixinsight-scripts.caelo.works/update/`
+3. Run **Resources → Updates → Check for Updates** and accept the install.
+4. **Restart PixInsight** — the script appears under **Script → Utilities → DarkFrameAnalyzer**.
 
-1. Add dark frames — FITS or XISF, individual files or a whole directory.
-2. Adjust the detection thresholds if needed (they persist across sessions;
-   the *Defaults* button restores the original values).
-3. Run the analysis — every dark is classified **Valid** / **Alert** /
-   **Rejected**, with the reasons shown in the status tooltip and a full
-   report written to the process console.
-4. Export the results:
-   - **Export CSV...** — one row per frame with all metrics (headers are
-     stable English identifiers, decimal point notation);
-   - **WBPP exclusions...** — the list of frames to keep out of
-     integration: copy it, export it as a `.txt` file, or physically move
-     the files to a `rejected/` subdirectory so WBPP never sees them.
+Updates are then delivered automatically through the same channel.
 
-The interface is available in English and French (top-right selector,
-choice remembered across sessions).
+### Manual install
 
-## Metrics and outlier detection
+Download `DarkFrameAnalyzer.js` from the **[Releases](https://github.com/caelo-works/dark-frame-analyzer/releases)**, then in
+PixInsight use **Script → Feature Scripts…**, click **Add** and select the
+folder containing the file. Alternatively, run it once via
+**Script → Execute Script File…**.
 
-For each dark frame:
+> **Requires PixInsight 1.9.0 or newer** — Windows, macOS and Linux.
 
-- **Clipped median** (thermal signal) — compared to the series reference
-  with absolute (ADU) and statistical (sigma) thresholds
-- **Robust MAD** (noise) — exact value derived from a 16-bit histogram,
-  sigma-equivalent (×1.4826), immune to hot pixel tails
-- **Clipped statistics** — iterative sigma clipping to convergence, like
-  astropy's `sigma_clipped_stats`
-- **Hot pixels** — count above a configurable ADU threshold
-- **Saturation** — pixels ≥ 65500 ADU
-- **Thermal drift** — difference between `SET-TEMP` and `CCD-TEMP`
-- **Spatial uniformity** — center vs corner medians (amp glow, gradients,
-  light leaks), with both an absolute gradient threshold and a
-  series-relative statistical test
+## Getting started
 
-Outlier detection uses robust statistics (series median + MAD) with
-anti-quantization safeguards: statistical tests only engage when the
-series shows a natural dispersion, so ADC quantization steps never turn
-into false positives.
+1. Add your dark frames — FITS or XISF, individual files or a whole directory.
+2. Adjust the detection thresholds if needed (defaults are calibrated for IMX585-class sensors and persist across sessions).
+3. Click **Analyze**: each frame is classified **Valid** / **Alert** / **Rejected**, with the reasons in the status tooltip and the full report in the process console.
+4. Export the **CSV** for your records, and use **WBPP exclusions…** to keep the flagged frames out of integration.
 
-## Python reference script
+A standalone Python reference implementation (`analyze_darks_series.py`,
+requires `numpy` + `astropy`) is included for scripted/CI usage.
 
-```bash
-pip install numpy astropy
-python analyze_darks_series.py /path/to/darks
-```
+## Links
+
+- 🌐 **Script page:** [pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer](https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer)
+- 📦 **Releases:** [github.com/caelo-works/dark-frame-analyzer/releases](https://github.com/caelo-works/dark-frame-analyzer/releases)
+
+---
+
+<div align="center">
+
+### 🌌 More PixInsight scripts by CaeloWorks
+
+[![Discover all CaeloWorks PixInsight scripts](https://pixinsight-scripts.caelo.works/assets/readme-banner.png)](https://pixinsight-scripts.caelo.works)
+
+**[Explore the full catalogue → pixinsight-scripts.caelo.works](https://pixinsight-scripts.caelo.works)**
+
+<sub>Made by <a href="https://caelo.works">CaeloWorks</a> · astrophotography software, firmware & hardware · GPL-3.0 License</sub>
+
+<sub>PixInsight is a registered trademark of Pleiades Astrophoto, S.L. CaeloWorks is an independent third-party developer.</sub>
+
+</div>

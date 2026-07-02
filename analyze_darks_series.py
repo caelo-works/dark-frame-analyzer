@@ -16,7 +16,7 @@ Sans argument, utilise le répertoire courant.
 Dépendances:
     pip install numpy astropy
 
-ATR585C calibration pipeline
+Copyright (C) 2026 CaeloWorks — GPL-3.0-or-later
 """
 
 import sys
