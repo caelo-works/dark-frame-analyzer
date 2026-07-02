@@ -24,8 +24,11 @@
 # as first argument to assert it (e.g. against a git tag): the build fails
 # on mismatch.
 #
-# The zip is reproducible (fixed entry order, fixed mtimes, fixed
-# permissions): its sha1 only changes when the content changes.
+# The zip is reproducible on a given build environment (fixed entry
+# order, mtimes, permissions, line endings and creator system): rebuilt
+# there, its sha1 only changes when the content changes. Builds on a
+# different zlib/Python may yield a different (equally valid) sha1 —
+# the published sha1 is the one of the release build.
 #
 # Usage:
 #   scripts/build-update-package.sh [expected-version]
@@ -38,10 +41,18 @@ SCRIPT_JS="$REPO_ROOT/DarkFrameAnalyzer.js"
 DIST_DIR="$REPO_ROOT/dist"
 INSTALL_PATH="src/scripts/CaeloWorks/DarkFrameAnalyzer"
 
-# --- Version: single source of truth is the #define in the script --------
-VERSION="$(sed -n 's/^#define[[:space:]]\{1,\}VERSION[[:space:]]\{1,\}"\([^"]*\)".*/\1/p' "$SCRIPT_JS")"
+# --- Version and title: single source of truth is the #define lines ------
+# The 'q' stops at the first match: a stray second #define would otherwise
+# inject a newline into the value and corrupt the JSON and the zip name.
+VERSION="$(sed -n '/^#define[[:space:]]\{1,\}VERSION[[:space:]]/{ s/^#define[[:space:]]\{1,\}VERSION[[:space:]]\{1,\}"\([^"]*\)".*/\1/p; q; }' "$SCRIPT_JS")"
 if [ -z "$VERSION" ]; then
    echo "ERROR: could not read #define VERSION from $SCRIPT_JS" >&2
+   exit 1
+fi
+
+SCRIPT_TITLE="$(sed -n '/^#define[[:space:]]\{1,\}TITLE[[:space:]]/{ s/^#define[[:space:]]\{1,\}TITLE[[:space:]]\{1,\}"\([^"]*\)".*/\1/p; q; }' "$SCRIPT_JS")"
+if [ -z "$SCRIPT_TITLE" ]; then
+   echo "ERROR: could not read #define TITLE from $SCRIPT_JS" >&2
    exit 1
 fi
 if [ -n "${1:-}" ] && [ "$1" != "$VERSION" ]; then
@@ -49,7 +60,8 @@ if [ -n "${1:-}" ] && [ "$1" != "$VERSION" ]; then
    exit 1
 fi
 
-RELEASE_DATE="${RELEASE_DATE:-$(date +%Y%m%d)}"
+# UTC so the default date does not depend on the builder's timezone
+RELEASE_DATE="${RELEASE_DATE:-$(date -u +%Y%m%d)}"
 case "$RELEASE_DATE" in
    [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
    *) echo "ERROR: RELEASE_DATE must be YYYYMMDD (got '$RELEASE_DATE')" >&2; exit 1 ;;
@@ -80,6 +92,7 @@ with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
     info = zipfile.ZipInfo(install_path + "/DarkFrameAnalyzer.js",
                            date_time=FIXED_DATE)
     info.external_attr = 0o644 << 16
+    info.create_system = 3  # fixed (unix): CPython defaults to 0 on Windows
     z.writestr(info, data)
 PYEOF
 
@@ -88,7 +101,7 @@ SHA1="$(sha1sum "$DIST_DIR/$ZIP_NAME" | cut -d' ' -f1)"
 # --- Metadata contract for the site (aggregated updates.xri) ---------------
 cat > "$DIST_DIR/update-package.json" <<EOF
 {
-  "name": "Dark Frame Analyzer",
+  "name": "$SCRIPT_TITLE",
   "slug": "dark-frame-analyzer",
   "version": "$VERSION",
   "fileName": "$ZIP_NAME",
@@ -96,7 +109,7 @@ cat > "$DIST_DIR/update-package.json" <<EOF
   "type": "script",
   "releaseDate": "$RELEASE_DATE",
   "piVersionRange": "1.9.0:1.9.99",
-  "title": "Dark Frame Analyzer v$VERSION",
+  "title": "$SCRIPT_TITLE v$VERSION",
   "descriptionHtml": "<p>Analyzes a series of dark frames (FITS or XISF) and flags out-of-spec frames before WBPP integration. Robust per-frame statistics — clipped median, exact MAD, hot pixels, thermal drift, spatial uniformity — with anti-quantization safeguards. Full console report, CSV export and WBPP exclusion tools.</p>"
 }
 EOF

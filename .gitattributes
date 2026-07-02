@@ -1,2 +1,6 @@
 # Les scripts shell doivent rester en LF (CRLF casse bash)
 *.sh text eol=lf
+
+# Le script PixInsight aussi : l'asset brut des releases et la copie
+# embarquée dans le zip de distribution doivent être identiques
+*.js text eol=lf

@@ -92,8 +92,9 @@ This produces two files under `dist/`:
 - **`DarkFrameAnalyzer-<version>.zip`** — the install tree extracted as-is
   by the PixInsight updater
   (`src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.js`, nothing
-  else). The archive is reproducible (fixed entry order, mtimes and line
-  endings): its sha1 only changes when the script content changes.
+  else). The archive is reproducible on a given build environment (fixed
+  entry order, mtimes, permissions, line endings and creator system):
+  rebuilt there, its sha1 only changes when the script content changes.
 - **`update-package.json`** — the metadata contract for the site: name,
   slug, version, `fileName`, `sha1`, type, `releaseDate`,
   `piVersionRange`, title and `descriptionHtml`.
