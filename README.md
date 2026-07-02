@@ -89,8 +89,6 @@ requires `numpy` + `astropy`) is included for scripted/CI usage.
 
 ### 🌌 More PixInsight scripts by CaeloWorks
 
-[![Discover all CaeloWorks PixInsight scripts](https://pixinsight-scripts.caelo.works/assets/readme-banner.png)](https://pixinsight-scripts.caelo.works)
-
 **[Explore the full catalogue → pixinsight-scripts.caelo.works](https://pixinsight-scripts.caelo.works)**
 
 <sub>Made by <a href="https://caelo.works">CaeloWorks</a> · astrophotography software, firmware & hardware · GPL-3.0 License</sub>
