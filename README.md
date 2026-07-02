@@ -118,7 +118,8 @@ The version is read from the `#define VERSION` line of
 version passed as argument doesn't match.
 
 **Every GitHub release must attach three assets:** `DarkFrameAnalyzer.js`,
-the versioned zip and `update-package.json`.
+the versioned zip and `update-package.json` — and move the corresponding
+`CHANGELOG.md` entries out of *Unreleased*.
 
 ## Links
 
