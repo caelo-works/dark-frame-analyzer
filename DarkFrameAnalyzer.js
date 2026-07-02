@@ -109,6 +109,7 @@ var STRINGS = {
       "btn.exclusions.tt": "List of darks to keep out of integration: .txt export or move to a rejected/ subdirectory",
       "btn.close":         "Close",
       "msg.noFiles":       "No files to analyze.\nAdd FITS files first.",
+      "err.open":          "Unable to open the file",
       "state.valid":       "Valid",
       "state.warning":     "Alert",
       "state.rejected":    "Rejected",
@@ -262,6 +263,7 @@ var STRINGS = {
       "btn.exclusions.tt": "Liste des darks à écarter de l'empilement : export .txt ou déplacement vers un sous-répertoire rejected/",
       "btn.close":         "Fermer",
       "msg.noFiles":       "Aucun fichier à analyser.\nAjoutez des fichiers FITS d'abord.",
+      "err.open":          "Impossible d'ouvrir le fichier",
       "state.valid":       "Valide",
       "state.warning":     "Alerte",
       "state.rejected":    "Rejet",
@@ -585,7 +587,7 @@ function analyzeSingleDark(filePath, params)
    }
 
    if (windows.length === 0) {
-      metrics.error = "Impossible d'ouvrir le fichier";
+      metrics.error = tr("err.open");
       return metrics;
    }
 
@@ -804,81 +806,78 @@ function detectOutliers(allMetrics, params)
    var effectiveMadDisp = Math.max(refMadMad, 0.5);
    var effectiveHotpxDisp = Math.max(refHotpxMad, refHotpx * 0.003, 1.0);
 
-   // Flagger chaque dark
+   // Flag each dark
    for (var i = 0; i < allMetrics.length; ++i) {
       var m = allMetrics[i];
       var flags = [];
       var severity = "ok";
 
       if (m.error !== null) {
-         flags.push("erreur lecture: " + m.error);
+         flags.push(tr("flag.readError", m.error));
          severity = "critical";
          m.flags = flags;
          m.severity = severity;
          continue;
       }
 
-      // --- Check mediane (signal thermique) ---
+      // --- Median check (thermal signal) ---
       var medianAbsDev = Math.abs(m.medianClip - refMedian);
       var zMedian = medianAbsDev / effectiveMedianDisp;
       var zMedianMeaningful = refMedianMad > 0.5;
 
       if (medianAbsDev > params.medianAbsDeviationCrit) {
-         flags.push("médiane très décalée (" + m.medianClip.toFixed(1) +
-            " vs ref " + refMedian.toFixed(1) +
-            ", d=" + medianAbsDev.toFixed(0) + " ADU)");
+         flags.push(tr("flag.medianCrit", m.medianClip.toFixed(1),
+            refMedian.toFixed(1), medianAbsDev.toFixed(0)));
          severity = "critical";
       }
       else if (medianAbsDev > params.medianAbsDeviationWarn) {
-         var detail = m.medianClip.toFixed(1) + " vs ref " + refMedian.toFixed(1) +
-            ", d=" + medianAbsDev.toFixed(0) + " ADU";
-         if (zMedianMeaningful)
-            detail += ", " + zMedian.toFixed(1) + "s";
-         flags.push("médiane décalée (" + detail + ")");
+         var sigmaSuffix = zMedianMeaningful ?
+            tr("flag.sigmaSuffix", zMedian.toFixed(1)) : "";
+         flags.push(tr("flag.medianWarn", m.medianClip.toFixed(1),
+            refMedian.toFixed(1), medianAbsDev.toFixed(0), sigmaSuffix));
          if (severity !== "critical") severity = "warning";
       }
       else if (zMedian > params.outlierSigmaMedian && zMedianMeaningful) {
-         flags.push("médiane statistiquement décalée (" + m.medianClip.toFixed(1) +
-            " vs ref " + refMedian.toFixed(1) + ", " + zMedian.toFixed(1) + "s)");
+         flags.push(tr("flag.medianStat", m.medianClip.toFixed(1),
+            refMedian.toFixed(1), zMedian.toFixed(1)));
          if (severity !== "critical") severity = "warning";
       }
 
-      // --- Check MAD (bruit anormal) ---
+      // --- MAD check (abnormal noise) ---
       var madAbsDev = Math.abs(m.mad - refMad);
       var zMad = madAbsDev / effectiveMadDisp;
       var zMadMeaningful = refMadMad > 0.5;
 
       if (madAbsDev > params.madAbsDeviationWarn) {
-         var detail = "MAD=" + m.mad.toFixed(1) + " vs ref " + refMad.toFixed(1) +
-            ", d=" + madAbsDev.toFixed(1) + " ADU";
-         if (zMadMeaningful)
-            detail += ", " + zMad.toFixed(1) + "s";
-         flags.push("bruit anormal (" + detail + ")");
+         var sigmaSuffix2 = zMadMeaningful ?
+            tr("flag.sigmaSuffix", zMad.toFixed(1)) : "";
+         flags.push(tr("flag.noiseWarn", m.mad.toFixed(1),
+            refMad.toFixed(1), madAbsDev.toFixed(1), sigmaSuffix2));
          if (severity !== "critical") severity = "warning";
       }
       else if (zMad > params.outlierSigmaMad && zMadMeaningful) {
-         flags.push("bruit anormal (MAD=" + m.mad.toFixed(1) +
-            " vs ref " + refMad.toFixed(1) + ", " + zMad.toFixed(1) + "s)");
+         flags.push(tr("flag.noiseStat", m.mad.toFixed(1),
+            refMad.toFixed(1), zMad.toFixed(1)));
          if (severity !== "critical") severity = "warning";
       }
 
-      // --- Check hot pixels ---
+      // --- Hot pixel check ---
       var zHotpx = Math.abs(m.nHot5k - refHotpx) / effectiveHotpxDisp;
       if (zHotpx > params.outlierSigmaHotpx) {
-         flags.push("hot pixels inhabituel(s) (" + m.nHot5k +
-            " vs ref " + Math.round(refHotpx) + ", " + zHotpx.toFixed(1) + "s)");
+         flags.push(tr("flag.hotpx", m.nHot5k, Math.round(refHotpx),
+            zHotpx.toFixed(1)));
          if (severity !== "critical") severity = "warning";
       }
 
-      // --- Check temperature ---
+      // --- Temperature check ---
       if (m.tempDeviation !== null && m.tempDeviation > params.tempDeviationMax) {
-         flags.push("dérive thermique (" + m.tempDeviation.toFixed(2) + " °C)");
+         flags.push(tr("flag.tempDrift", m.tempDeviation.toFixed(2)));
          severity = "critical";
       }
 
-      // --- Check saturation massive ---
+      // --- Massive saturation check ---
       if (m.nSaturated > params.saturatedPixelsMax) {
-         flags.push("saturation massive (" + m.nSaturated + " pixels)");
+         flags.push(tr("flag.saturation", m.nSaturated));
          severity = "critical";
       }
 
@@ -916,12 +915,12 @@ function generateConsoleReport(allMetrics, refs, params)
    // --- Header ---
    console.writeln("");
    console.writeln(sep);
-   console.writeln("ANALYSE DE SERIE DE DARKS");
+   console.writeln(tr("rep.title"));
    console.writeln(sep);
-   console.writeln("Fichiers    : " + allMetrics.length + " FITS analysés (" + valid.length + " lus avec succès)");
+   console.writeln(tr("rep.files", allMetrics.length, valid.length));
 
    if (valid.length > 0) {
-      // Coherence de la serie
+      // Series consistency
       var gains = [], offsets = [], exptimes = [], temps = [];
       for (var i = 0; i < valid.length; ++i) {
          if (valid[i].gain !== null) gains.push(valid[i].gain);
@@ -931,40 +930,40 @@ function generateConsoleReport(allMetrics, refs, params)
       }
 
       console.writeln("");
-      console.writeln("Paramètres détectés :");
-      console.writeln("  Gain        : [" + uniqueValues(gains).join(", ") + "]");
-      console.writeln("  Offset      : [" + uniqueValues(offsets).join(", ") + "]");
-      console.writeln("  Durée       : [" + uniqueValues(exptimes).join(", ") + "] s");
-      console.writeln("  SET-TEMP    : [" + uniqueValues(temps).join(", ") + "] °C");
+      console.writeln(tr("rep.params"));
+      console.writeln(tr("rep.gain", uniqueValues(gains).join(", ")));
+      console.writeln(tr("rep.offset", uniqueValues(offsets).join(", ")));
+      console.writeln(tr("rep.expt", uniqueValues(exptimes).join(", ")));
+      console.writeln(tr("rep.settemp", uniqueValues(temps).join(", ")));
 
       if (uniqueValues(gains).length > 1)
-         console.warningln("  ATTENTION: plusieurs gains dans la serie");
+         console.warningln(tr("rep.multiGain"));
       if (uniqueValues(offsets).length > 1)
-         console.warningln("  ATTENTION: plusieurs offsets dans la serie");
+         console.warningln(tr("rep.multiOffset"));
       if (uniqueValues(exptimes).length > 1)
-         console.warningln("  ATTENTION: plusieurs durees dans la serie");
+         console.warningln(tr("rep.multiExpt"));
    }
 
-   // --- Tableau principal ---
+   // --- Main table ---
    console.writeln("");
    console.writeln(sep);
-   console.writeln("TABLEAU DES METRIQUES PAR DARK");
+   console.writeln(tr("rep.tableTitle"));
    console.writeln(sep);
 
    console.writeln(
       padRight("#", 4) +
-      padRight("Fichier", 35) +
-      padRight("T_ccd", 7) +
-      padRight("Mediane", 9) +
-      padRight("MeanClip", 10) +
-      padRight("MAD", 7) +
-      padRight("Hot>5k", 8) +
-      padRight("Sat.", 6) +
-      padRight("Etat", 10)
+      padRight(tr("rep.colFile"), 35) +
+      padRight(tr("rep.colTccd"), 7) +
+      padRight(tr("rep.colMedian"), 9) +
+      padRight(tr("rep.colMeanClip"), 10) +
+      padRight(tr("rep.colMad"), 7) +
+      padRight(tr("rep.colHot"), 8) +
+      padRight(tr("rep.colSat"), 6) +
+      padRight(tr("rep.colState"), 10)
    );
    console.writeln(sep2);
 
-   // Tri par date
+   // Sort by observation date
    var sorted = allMetrics.slice().sort(function(a, b) {
       var da = a.dateObs || "";
       var db = b.dateObs || "";
@@ -977,7 +976,7 @@ function generateConsoleReport(allMetrics, refs, params)
       var fname = padRight(truncateFilename(m.filename, 34), 35);
 
       if (m.error !== null) {
-         console.writeln(num + fname + " ERREUR: " + m.error);
+         console.writeln(num + fname + tr("rep.error", m.error));
          continue;
       }
 
@@ -998,29 +997,29 @@ function generateConsoleReport(allMetrics, refs, params)
       );
    }
 
-   // --- Statistiques de reference ---
+   // --- Reference statistics ---
    if (refs !== null) {
       console.writeln("");
       console.writeln(sep);
-      console.writeln("REFERENCES STATISTIQUES DE LA SERIE");
+      console.writeln(tr("rep.refsTitle"));
       console.writeln(sep);
 
       console.writeln("");
       console.writeln(
-         padRight("Metrique", 25) +
-         padLeft("Mediane", 12) +
-         padLeft("s (MAD)", 10) +
-         padLeft("Min", 10) +
-         padLeft("Max", 10) +
-         padLeft("Etendue", 10)
+         padRight(tr("rep.statMetric"), 25) +
+         padLeft(tr("rep.statMedian"), 12) +
+         padLeft(tr("rep.statSigma"), 10) +
+         padLeft(tr("rep.statMin"), 10) +
+         padLeft(tr("rep.statMax"), 10) +
+         padLeft(tr("rep.statRange"), 10)
       );
       console.writeln(sep2.substring(0, 77));
 
       var statRows = [
-         { name: "Médiane clippée (ADU)", vals: [] },
-         { name: "MAD robuste (ADU)", vals: [] },
-         { name: "Hot pixels > 5000", vals: [] },
-         { name: "Pixels saturés", vals: [] }
+         { name: tr("rep.statClipMed"), vals: [] },
+         { name: tr("rep.statMad"), vals: [] },
+         { name: tr("rep.statHot"), vals: [] },
+         { name: tr("rep.statSat"), vals: [] }
       ];
 
       for (var i = 0; i < valid.length; ++i) {
@@ -1049,7 +1048,7 @@ function generateConsoleReport(allMetrics, refs, params)
       }
       if (tempsCcd.length > 0) {
          console.writeln(
-            padRight("Température CCD (C)", 25) +
+            padRight(tr("rep.statTemp"), 25) +
             padLeft(arrayMedian(tempsCcd).toFixed(2), 12) +
             padLeft(arrayMAD(tempsCcd).toFixed(3), 10) +
             padLeft(arrayMin(tempsCcd).toFixed(2), 10) +
@@ -1059,7 +1058,7 @@ function generateConsoleReport(allMetrics, refs, params)
       }
    }
 
-   // --- Alertes ---
+   // --- Alerts ---
    var flagged = [];
    for (var i = 0; i < allMetrics.length; ++i) {
       if (allMetrics[i].flags && allMetrics[i].flags.length > 0 && allMetrics[i].severity !== "ok")
@@ -1068,15 +1067,15 @@ function generateConsoleReport(allMetrics, refs, params)
 
    console.writeln("");
    console.writeln(sep);
-   console.writeln("ALERTES - DARKS HORS NORME (" + flagged.length + "/" + allMetrics.length + ")");
+   console.writeln(tr("rep.alertsTitle", flagged.length, allMetrics.length));
    console.writeln(sep);
 
    if (flagged.length === 0) {
       console.writeln("");
-      console.writeln("Aucune anomalie détectée. Série homogène et de qualité.");
+      console.writeln(tr("rep.noAnomaly"));
    }
    else {
-      // Trier par severite (critical en premier)
+      // Sort by severity (critical first)
       flagged.sort(function(a, b) {
          var sa = a.severity === "critical" ? 0 : 1;
          var sb = b.severity === "critical" ? 0 : 1;
@@ -1100,10 +1099,10 @@ function generateConsoleReport(allMetrics, refs, params)
       }
    }
 
-   // --- Recommandations ---
+   // --- Recommendations ---
    console.writeln("");
    console.writeln(sep);
-   console.writeln("RECOMMANDATIONS");
+   console.writeln(tr("rep.recoTitle"));
    console.writeln(sep);
 
    var warnings = [];
@@ -1115,25 +1114,23 @@ function generateConsoleReport(allMetrics, refs, params)
 
    if (criticals.length > 0) {
       console.warningln("");
-      console.warningln(criticals.length + " dark(s) critique(s) à exclure absolument de l'empilement :");
+      console.warningln(tr("rep.critList", criticals.length));
       for (var i = 0; i < criticals.length; ++i)
          console.warningln("   - " + criticals[i].filename);
    }
 
    if (warnings.length > 0) {
       console.writeln("");
-      console.writeln(warnings.length + " dark(s) à examiner (potentiellement à exclure) :");
+      console.writeln(tr("rep.warnList", warnings.length));
       for (var i = 0; i < warnings.length; ++i)
          console.writeln("   - " + warnings[i].filename);
       console.writeln("");
-      console.writeln("   -> Ces darks seront probablement bien gérés par une réjection");
-      console.writeln("      Winsorized Sigma 3.0/4.0 dans WBPP, mais tu peux les exclure");
-      console.writeln("      manuellement pour plus de propreté.");
+      console.writeln(tr("rep.warnAdvice"));
    }
 
    if (warnings.length === 0 && criticals.length === 0) {
       console.writeln("");
-      console.writeln("Série 100% homogène — prête pour empilement sans exclusion.");
+      console.writeln(tr("rep.clean"));
    }
 
    var cleanCount = 0;
@@ -1142,16 +1139,16 @@ function generateConsoleReport(allMetrics, refs, params)
    }
 
    console.writeln("");
-   console.writeln("Pour l'empilement:");
-   console.writeln("  - " + valid.length + " darks utilisables au total");
-   console.writeln("  - " + cleanCount + " darks totalement propres");
-   console.writeln("  - Recommandation: Winsorized Sigma Clipping 3.0/4.0 dans WBPP");
-   console.writeln("  - Normalization: No normalization");
-   console.writeln("  - Output: float32 FITS ou XISF");
+   console.writeln(tr("rep.stackTitle"));
+   console.writeln(tr("rep.stackTotal", valid.length));
+   console.writeln(tr("rep.stackClean", cleanCount));
+   console.writeln(tr("rep.stackReco"));
+   console.writeln(tr("rep.stackNorm"));
+   console.writeln(tr("rep.stackOut"));
 
    console.writeln("");
    console.writeln(sep);
-   console.writeln("Analyse terminée — " + allMetrics.length + " fichiers traités");
+   console.writeln(tr("rep.done", allMetrics.length));
    console.writeln(sep);
 }
 
@@ -2011,28 +2008,28 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
 
    console.show();
    console.writeln("");
-   console.writeln("Début de l'analyse de " + this.filePaths.length + " darks...");
+   console.writeln(tr("run.start", this.filePaths.length));
    console.flush();
 
    var startTime = Date.now();
 
-   // Phase 1 : Analyse individuelle (mise a jour progressive du TreeBox)
+   // Phase 1: per-frame analysis (progressive TreeBox update)
    for (var i = 0; i < this.filePaths.length; ++i) {
-      console.write("<end>\rAnalyse [" + (i + 1) + "/" + this.filePaths.length + "] " +
+      console.write("<end>\r" + tr("run.progress", i + 1, this.filePaths.length) +
          File.extractName(this.filePaths[i]) + File.extractExtension(this.filePaths[i]));
       console.flush();
 
       var metrics = analyzeSingleDark(this.filePaths[i], this.params);
       this.allMetrics.push(metrics);
 
-      // Mise a jour immediate de la ligne dans le TreeBox
+      // Immediate row update in the TreeBox
       this.updateRowMetrics(metrics);
-      processEvents();  // Rafraichir l'interface
+      processEvents();  // keep the UI responsive
    }
 
-   console.writeln("");  // Nouvelle ligne apres la barre de progression
+   console.writeln("");  // new line after the progress indicator
    var elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-   console.writeln("Analyse individuelle terminée en " + elapsed + " s");
+   console.writeln(tr("run.elapsed", elapsed));
 
    // Phase 2 : Detection d'outliers sur l'ensemble
    var result = detectOutliers(this.allMetrics, this.params);
