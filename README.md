@@ -121,6 +121,23 @@ version passed as argument doesn't match.
 the versioned zip and `update-package.json` — and move the corresponding
 `CHANGELOG.md` entries out of *Unreleased*.
 
+### Code signing (not enabled yet)
+
+Once the CaeloWorks CPD identity is validated by Pleiades Astrophoto,
+releases will be signed by pointing the build at the key file:
+
+```bash
+XSSK_PATH=/path/to/key.xssk scripts/build-update-package.sh <version>
+```
+
+The key password is prompted interactively and never stored anywhere;
+signing runs inside a local PixInsight installation and adds the `.xsgn`
+next to the script in the zip. A signed zip is not byte-reproducible
+across signings (the signature is timestamped): each signing produces a
+new sha1, which the update repository re-ingests. **Until the identity is
+validated, releases stay unsigned on purpose** — an unverifiable
+signature is worse for users than the dismissable "unsigned" warning.
+
 ## Links
 
 - 🌐 **Script page:** [pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer](https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer)

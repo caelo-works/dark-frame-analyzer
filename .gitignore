@@ -22,3 +22,8 @@ dist/
 
 # Sorties générées par le runner de tests
 tests/build/
+
+# Signature de code PixInsight : la clé ne doit JAMAIS entrer dans ce
+# repo public ; les signatures sont générées au packaging
+*.xssk
+*.xsgn

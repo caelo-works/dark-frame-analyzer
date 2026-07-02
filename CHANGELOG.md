@@ -14,6 +14,10 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 - Node test suite (`tests/`) covering the statistics, CSV export,
   translations and outlier detection, and a CI pipeline (tests +
   packaging dry-run) required on every pull request.
+- Optional code-signing step in the packaging (disabled until the
+  CaeloWorks CPD identity is validated): `XSSK_PATH` triggers `.xsgn`
+  generation through PixInsight, with the key password prompted and
+  never stored.
 
 ### Changed
 - README rewritten in English on the CaeloWorks template.
