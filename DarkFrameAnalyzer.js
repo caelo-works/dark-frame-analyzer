@@ -46,6 +46,359 @@ var DEFAULT_PARAMS = {
 
 
 // ============================================================================
+// LOCALIZATION
+// ============================================================================
+//
+// All user-visible strings live in the STRINGS table below. English is the
+// reference language and the fallback when a key is missing in another
+// language. The selected language persists across sessions via Settings.
+//
+// tr("key", a, b, ...) returns the string for the current language with
+// %1, %2, ... placeholders replaced by the extra arguments.
+
+var SETTINGS_KEY_BASE = "DarkFrameAnalyzer";
+
+var STRINGS = {
+
+   en: {
+      // Main dialog
+      "help":              "Add dark FITS files, configure the detection thresholds, then run the analysis.",
+      "lang.label":        "Language:",
+      "col.num":           "#",
+      "col.file":          "File",
+      "col.temp":          "Temp.",
+      "col.median":        "Median",
+      "col.noise":         "Noise",
+      "col.hotpx":         "Hot px",
+      "col.sat":           "Sat.",
+      "col.state":         "Status",
+      "files.group":       "Darks",
+      "btn.addFiles":      "+ Darks",
+      "btn.addFiles.tt":   "Add FITS files",
+      "btn.addDir":        "+ Directory",
+      "btn.addDir.tt":     "Add all FITS files from a directory",
+      "btn.remove":        "- Remove",
+      "btn.remove.tt":     "Remove the selected files",
+      "btn.clear":         "Clear all",
+      "btn.clear.tt":      "Remove all files",
+      "dlg.selectFiles":   "Select dark FITS files",
+      "dlg.fitsFilter":    "FITS files",
+      "dlg.selectDir":     "Select a directory of darks",
+      "params.group":      "Detection thresholds",
+      "temp.group":        "Temperature",
+      "temp.hint":         "Tolerated difference between setpoint and sensor temperature.",
+      "temp.max":          "Max deviation (°C):",
+      "median.group":      "Median",
+      "median.hint":       "Detects darks whose thermal signal differs from the series.",
+      "lbl.sigma":         "Sensitivity (sigma):",
+      "lbl.warnAdu":       "Warning (ADU):",
+      "lbl.critAdu":       "Rejection (ADU):",
+      "noise.group":       "Noise",
+      "noise.hint":        "Detects abnormal read noise (image MAD).",
+      "hotpx.group":       "Hot pixels",
+      "hotpx.hint":        "Counts pixels above the threshold and detects deviations.",
+      "hotpx.threshold":   "Threshold (ADU):",
+      "sat.group":         "Saturation",
+      "sat.hint":          "Maximum number of saturated pixels accepted per dark.",
+      "sat.max":           "Max saturated pixels:",
+      "btn.analyze":       "Analyze",
+      "btn.analyze.tt":    "Run the analysis on all darks",
+      "btn.exportCsv":     "Export CSV...",
+      "btn.exportCsv.tt":  "Export the metrics of the last analysis to a CSV file",
+      "btn.exclusions":    "WBPP exclusions...",
+      "btn.exclusions.tt": "List of darks to keep out of integration: .txt export or move to a rejected/ subdirectory",
+      "btn.close":         "Close",
+      "msg.noFiles":       "No files to analyze.\nAdd FITS files first.",
+      "state.valid":       "Valid",
+      "state.warning":     "Alert",
+      "state.rejected":    "Rejected",
+      "state.error":       "Error",
+      "state.err":         "ERR",
+      "tt.noAnomaly":      "No anomaly",
+      "tt.error":          "Error: %1",
+      "sum.valid":         "valid",
+      "sum.warn":          "warning(s)",
+      "sum.crit":          "rejected",
+      "csv.caption":       "Export metrics to CSV",
+      "csv.filter":        "CSV files",
+      "filter.all":        "All files",
+      "csv.done":          "Metrics exported:\n%1",
+      "csv.doneLog":       "Metrics exported: %1",
+      "csv.fail":          "CSV export failed:\n%1",
+      "excl.none":         "No dark to exclude — 100% clean series.",
+
+      // Analysis run + console report
+      "run.start":         "Starting analysis of %1 darks...",
+      "run.progress":      "Analyzing [%1/%2] ",
+      "run.elapsed":       "Per-frame analysis completed in %1 s",
+      "rep.title":         "DARK SERIES ANALYSIS",
+      "rep.files":         "Files       : %1 FITS analyzed (%2 read successfully)",
+      "rep.params":        "Detected parameters:",
+      "rep.gain":          "  Gain        : [%1]",
+      "rep.offset":        "  Offset      : [%1]",
+      "rep.expt":          "  Exposure    : [%1] s",
+      "rep.settemp":       "  SET-TEMP    : [%1] °C",
+      "rep.multiGain":     "  WARNING: multiple gains in the series",
+      "rep.multiOffset":   "  WARNING: multiple offsets in the series",
+      "rep.multiExpt":     "  WARNING: multiple exposure times in the series",
+      "rep.tableTitle":    "PER-DARK METRICS TABLE",
+      "rep.colFile":       "File",
+      "rep.colTccd":       "T_ccd",
+      "rep.colMedian":     "Median",
+      "rep.colMeanClip":   "MeanClip",
+      "rep.colMad":        "MAD",
+      "rep.colHot":        "Hot>5k",
+      "rep.colSat":        "Sat.",
+      "rep.colState":      "Status",
+      "rep.error":         " ERROR: %1",
+      "rep.refsTitle":     "SERIES STATISTICAL REFERENCES",
+      "rep.statMetric":    "Metric",
+      "rep.statMedian":    "Median",
+      "rep.statSigma":     "s (MAD)",
+      "rep.statMin":       "Min",
+      "rep.statMax":       "Max",
+      "rep.statRange":     "Range",
+      "rep.statClipMed":   "Clipped median (ADU)",
+      "rep.statMad":       "Robust MAD (ADU)",
+      "rep.statHot":       "Hot pixels > 5000",
+      "rep.statSat":       "Saturated pixels",
+      "rep.statTemp":      "CCD temperature (C)",
+      "rep.alertsTitle":   "ALERTS - OUT-OF-SPEC DARKS (%1/%2)",
+      "rep.noAnomaly":     "No anomaly detected. Homogeneous, good-quality series.",
+      "rep.recoTitle":     "RECOMMENDATIONS",
+      "rep.critList":      "%1 critical dark(s) to exclude from integration:",
+      "rep.warnList":      "%1 dark(s) to review (potentially exclude):",
+      "rep.warnAdvice":    "   -> These darks will probably be handled fine by a Winsorized\n      Sigma 3.0/4.0 rejection in WBPP, but you may exclude them\n      manually for extra cleanliness.",
+      "rep.clean":         "100% homogeneous series — ready for integration without exclusions.",
+      "rep.stackTitle":    "For integration:",
+      "rep.stackTotal":    "  - %1 usable darks in total",
+      "rep.stackClean":    "  - %1 perfectly clean darks",
+      "rep.stackReco":     "  - Recommendation: Winsorized Sigma Clipping 3.0/4.0 in WBPP",
+      "rep.stackNorm":     "  - Normalization: No normalization",
+      "rep.stackOut":      "  - Output: float32 FITS or XISF",
+      "rep.done":          "Analysis complete — %1 files processed",
+
+      // Outlier flags
+      "flag.readError":    "read error: %1",
+      "flag.medianCrit":   "median strongly offset (%1 vs ref %2, d=%3 ADU)",
+      "flag.medianWarn":   "median offset (%1 vs ref %2, d=%3 ADU%4)",
+      "flag.medianStat":   "statistically offset median (%1 vs ref %2, %3s)",
+      "flag.noiseWarn":    "abnormal noise (MAD=%1 vs ref %2, d=%3 ADU%4)",
+      "flag.noiseStat":    "abnormal noise (MAD=%1 vs ref %2, %3s)",
+      "flag.hotpx":        "unusual hot pixel count (%1 vs ref %2, %3s)",
+      "flag.tempDrift":    "thermal drift (%1 °C)",
+      "flag.saturation":   "massive saturation (%1 pixels)",
+      "flag.sigmaSuffix":  ", %1s",
+
+      // WBPP exclusion dialog
+      "excl.title":        "WBPP exclusions",
+      "excl.help":         "List of darks to keep out of integration. Copy it, export it to a .txt file, or move the files to a 'rejected' subdirectory so WBPP won't see them.",
+      "excl.inclWarn":     "Include alerts (default: rejected only)",
+      "excl.inclWarn.tt":  "Rejected (critical) darks are always listed. Check to also include warning-level darks.",
+      "excl.count":        "%1 file(s) to exclude",
+      "excl.movedCount":   " — %1 already moved",
+      "excl.exportTxt":    "Export .txt...",
+      "excl.exportTxt.tt": "Write the list (one path per line) to a text file",
+      "excl.move":         "Move to rejected/...",
+      "excl.move.tt":      "Move the listed files to a 'rejected' subdirectory next to the darks (with confirmation)",
+      "excl.exportCaption": "Export the exclusion list",
+      "txt.filter":        "Text files",
+      "excl.exportDone":   "Exclusion list exported:\n%1",
+      "excl.exportDoneLog": "Exclusion list exported: %1",
+      "excl.exportFail":   "Export failed:\n%1",
+      "excl.confirmMove":  "Move %1 file(s) to a 'rejected' subdirectory (created next to the darks)?\n\nMoved files will be removed from the analysis list.",
+      "excl.exists":       "a file with the same name already exists in rejected/",
+      "excl.movedLog":     "Moved: %1 -> %2",
+      "excl.moveReport":   "%1 file(s) moved to rejected/",
+      "excl.moveFailures": "\n\nFailures (%1):\n%2"
+   },
+
+   fr: {
+      // Dialogue principal
+      "help":              "Ajoutez des fichiers FITS de darks, configurez les seuils, puis lancez l'analyse.",
+      "lang.label":        "Langue :",
+      "col.num":           "#",
+      "col.file":          "Fichier",
+      "col.temp":          "Temp.",
+      "col.median":        "Médiane",
+      "col.noise":         "Bruit",
+      "col.hotpx":         "Hot px",
+      "col.sat":           "Sat.",
+      "col.state":         "Etat",
+      "files.group":       "Darks",
+      "btn.addFiles":      "+ Darks",
+      "btn.addFiles.tt":   "Ajouter des fichiers FITS",
+      "btn.addDir":        "+ Répertoire",
+      "btn.addDir.tt":     "Ajouter tous les FITS d'un répertoire",
+      "btn.remove":        "- Supprimer",
+      "btn.remove.tt":     "Supprimer les fichiers sélectionnés",
+      "btn.clear":         "Tout vider",
+      "btn.clear.tt":      "Supprimer tous les fichiers",
+      "dlg.selectFiles":   "Sélectionner des darks FITS",
+      "dlg.fitsFilter":    "Fichiers FITS",
+      "dlg.selectDir":     "Sélectionner un répertoire de darks",
+      "params.group":      "Seuils de détection",
+      "temp.group":        "Température",
+      "temp.hint":         "Écart toléré entre température de consigne et température capteur.",
+      "temp.max":          "Écart max (°C) :",
+      "median.group":      "Médiane",
+      "median.hint":       "Détecte les darks dont le signal thermique diffère de la série.",
+      "lbl.sigma":         "Sensibilité (sigma) :",
+      "lbl.warnAdu":       "Alerte (ADU) :",
+      "lbl.critAdu":       "Rejet (ADU) :",
+      "noise.group":       "Bruit",
+      "noise.hint":        "Détecte un bruit de lecture anormal (MAD de l'image).",
+      "hotpx.group":       "Hot pixels",
+      "hotpx.hint":        "Compte les pixels au-dessus du seuil et détecte les écarts.",
+      "hotpx.threshold":   "Seuil (ADU) :",
+      "sat.group":         "Saturation",
+      "sat.hint":          "Nombre max de pixels saturés accepté par dark.",
+      "sat.max":           "Pixels saturés max :",
+      "btn.analyze":       "Analyser",
+      "btn.analyze.tt":    "Lancer l'analyse de tous les darks",
+      "btn.exportCsv":     "Exporter CSV...",
+      "btn.exportCsv.tt":  "Exporter les métriques de la dernière analyse dans un fichier CSV",
+      "btn.exclusions":    "Exclusions WBPP...",
+      "btn.exclusions.tt": "Liste des darks à écarter de l'empilement : export .txt ou déplacement vers un sous-répertoire rejected/",
+      "btn.close":         "Fermer",
+      "msg.noFiles":       "Aucun fichier à analyser.\nAjoutez des fichiers FITS d'abord.",
+      "state.valid":       "Valide",
+      "state.warning":     "Alerte",
+      "state.rejected":    "Rejet",
+      "state.error":       "Erreur",
+      "state.err":         "ERR",
+      "tt.noAnomaly":      "Aucune anomalie",
+      "tt.error":          "Erreur : %1",
+      "sum.valid":         "valide(s)",
+      "sum.warn":          "alerte(s)",
+      "sum.crit":          "rejet(s)",
+      "csv.caption":       "Exporter les métriques en CSV",
+      "csv.filter":        "Fichiers CSV",
+      "filter.all":        "Tous les fichiers",
+      "csv.done":          "Métriques exportées :\n%1",
+      "csv.doneLog":       "Métriques exportées : %1",
+      "csv.fail":          "Échec de l'export CSV :\n%1",
+      "excl.none":         "Aucun dark à exclure — série 100% propre.",
+
+      // Analyse + rapport console
+      "run.start":         "Début de l'analyse de %1 darks...",
+      "run.progress":      "Analyse [%1/%2] ",
+      "run.elapsed":       "Analyse individuelle terminée en %1 s",
+      "rep.title":         "ANALYSE DE SERIE DE DARKS",
+      "rep.files":         "Fichiers    : %1 FITS analysés (%2 lus avec succès)",
+      "rep.params":        "Paramètres détectés :",
+      "rep.gain":          "  Gain        : [%1]",
+      "rep.offset":        "  Offset      : [%1]",
+      "rep.expt":          "  Durée       : [%1] s",
+      "rep.settemp":       "  SET-TEMP    : [%1] °C",
+      "rep.multiGain":     "  ATTENTION : plusieurs gains dans la série",
+      "rep.multiOffset":   "  ATTENTION : plusieurs offsets dans la série",
+      "rep.multiExpt":     "  ATTENTION : plusieurs durées dans la série",
+      "rep.tableTitle":    "TABLEAU DES METRIQUES PAR DARK",
+      "rep.colFile":       "Fichier",
+      "rep.colTccd":       "T_ccd",
+      "rep.colMedian":     "Mediane",
+      "rep.colMeanClip":   "MeanClip",
+      "rep.colMad":        "MAD",
+      "rep.colHot":        "Hot>5k",
+      "rep.colSat":        "Sat.",
+      "rep.colState":      "Etat",
+      "rep.error":         " ERREUR : %1",
+      "rep.refsTitle":     "REFERENCES STATISTIQUES DE LA SERIE",
+      "rep.statMetric":    "Metrique",
+      "rep.statMedian":    "Mediane",
+      "rep.statSigma":     "s (MAD)",
+      "rep.statMin":       "Min",
+      "rep.statMax":       "Max",
+      "rep.statRange":     "Etendue",
+      "rep.statClipMed":   "Médiane clippée (ADU)",
+      "rep.statMad":       "MAD robuste (ADU)",
+      "rep.statHot":       "Hot pixels > 5000",
+      "rep.statSat":       "Pixels saturés",
+      "rep.statTemp":      "Température CCD (C)",
+      "rep.alertsTitle":   "ALERTES - DARKS HORS NORME (%1/%2)",
+      "rep.noAnomaly":     "Aucune anomalie détectée. Série homogène et de qualité.",
+      "rep.recoTitle":     "RECOMMANDATIONS",
+      "rep.critList":      "%1 dark(s) critique(s) à exclure absolument de l'empilement :",
+      "rep.warnList":      "%1 dark(s) à examiner (potentiellement à exclure) :",
+      "rep.warnAdvice":    "   -> Ces darks seront probablement bien gérés par une réjection\n      Winsorized Sigma 3.0/4.0 dans WBPP, mais tu peux les exclure\n      manuellement pour plus de propreté.",
+      "rep.clean":         "Série 100% homogène — prête pour empilement sans exclusion.",
+      "rep.stackTitle":    "Pour l'empilement :",
+      "rep.stackTotal":    "  - %1 darks utilisables au total",
+      "rep.stackClean":    "  - %1 darks totalement propres",
+      "rep.stackReco":     "  - Recommandation : Winsorized Sigma Clipping 3.0/4.0 dans WBPP",
+      "rep.stackNorm":     "  - Normalization : No normalization",
+      "rep.stackOut":      "  - Output : float32 FITS ou XISF",
+      "rep.done":          "Analyse terminée — %1 fichiers traités",
+
+      // Alertes de détection
+      "flag.readError":    "erreur lecture : %1",
+      "flag.medianCrit":   "médiane très décalée (%1 vs ref %2, d=%3 ADU)",
+      "flag.medianWarn":   "médiane décalée (%1 vs ref %2, d=%3 ADU%4)",
+      "flag.medianStat":   "médiane statistiquement décalée (%1 vs ref %2, %3s)",
+      "flag.noiseWarn":    "bruit anormal (MAD=%1 vs ref %2, d=%3 ADU%4)",
+      "flag.noiseStat":    "bruit anormal (MAD=%1 vs ref %2, %3s)",
+      "flag.hotpx":        "hot pixels inhabituel(s) (%1 vs ref %2, %3s)",
+      "flag.tempDrift":    "dérive thermique (%1 °C)",
+      "flag.saturation":   "saturation massive (%1 pixels)",
+      "flag.sigmaSuffix":  ", %1s",
+
+      // Fenêtre d'exclusions WBPP
+      "excl.title":        "Exclusions WBPP",
+      "excl.help":         "Liste des darks à écarter de l'empilement. Copiez-la, exportez-la en .txt, ou déplacez les fichiers dans un sous-répertoire 'rejected' pour que WBPP ne les voie plus.",
+      "excl.inclWarn":     "Inclure les alertes (par défaut : rejets seuls)",
+      "excl.inclWarn.tt":  "Les rejets (critiques) sont toujours listés. Cochez pour ajouter les darks en alerte (warning).",
+      "excl.count":        "%1 fichier(s) à exclure",
+      "excl.movedCount":   " — %1 déjà déplacé(s)",
+      "excl.exportTxt":    "Exporter .txt...",
+      "excl.exportTxt.tt": "Écrire la liste (un chemin par ligne) dans un fichier texte",
+      "excl.move":         "Déplacer vers rejected/...",
+      "excl.move.tt":      "Déplacer les fichiers listés dans un sous-répertoire 'rejected' à côté des darks (avec confirmation)",
+      "excl.exportCaption": "Exporter la liste d'exclusion",
+      "txt.filter":        "Fichiers texte",
+      "excl.exportDone":   "Liste d'exclusion exportée :\n%1",
+      "excl.exportDoneLog": "Liste d'exclusion exportée : %1",
+      "excl.exportFail":   "Échec de l'export :\n%1",
+      "excl.confirmMove":  "Déplacer %1 fichier(s) vers un sous-répertoire 'rejected' (créé à côté des darks) ?\n\nLes fichiers déplacés seront retirés de la liste d'analyse.",
+      "excl.exists":       "un fichier du même nom existe déjà dans rejected/",
+      "excl.movedLog":     "Déplacé : %1 -> %2",
+      "excl.moveReport":   "%1 fichier(s) déplacé(s) vers rejected/",
+      "excl.moveFailures": "\n\nÉchecs (%1) :\n%2"
+   }
+};
+
+// Language codes/names in ComboBox item order
+var LANG_CODES = ["en", "fr"];
+var LANG_NAMES = ["English", "Français"];
+
+var gLanguage = "en";  // default; overridden by the saved setting
+
+function loadLanguageSetting()
+{
+   var lang = Settings.read(SETTINGS_KEY_BASE + "/language", DataType_String);
+   if (Settings.lastReadOK && lang && STRINGS[lang] !== undefined)
+      gLanguage = lang;
+}
+
+function saveLanguageSetting()
+{
+   Settings.write(SETTINGS_KEY_BASE + "/language", DataType_String, gLanguage);
+}
+
+function tr(key)
+{
+   var table = STRINGS[gLanguage];
+   var s = (table && table[key] !== undefined) ? table[key] : STRINGS.en[key];
+   if (s === undefined) return key;
+   // split/join instead of replace(): replaces every occurrence and is
+   // immune to '$' patterns in the substituted values
+   for (var i = 1; i < arguments.length; ++i)
+      s = s.split("%" + i).join(String(arguments[i]));
+   return s;
+}
+
+
+// ============================================================================
 // HELPERS — STATISTIQUES SUR TABLEAUX JS
 // ============================================================================
 
