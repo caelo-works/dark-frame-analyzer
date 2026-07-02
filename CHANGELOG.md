@@ -16,8 +16,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   packaging dry-run) required on every pull request.
 - Optional code-signing step in the packaging (disabled until the
   CaeloWorks CPD identity is validated): `XSSK_PATH` triggers `.xsgn`
-  generation through PixInsight, with the key password prompted and
-  never stored.
+  generation through PixInsight. The key password is prompted (or preset
+  for automation) and never persisted by the build.
 
 ### Changed
 - README rewritten in English on the CaeloWorks template.

@@ -44,9 +44,10 @@
 # - The key password is prompted on the terminal (read -s) and crosses to
 #   PixInsight as a command-scoped environment variable: this script never
 #   writes it to a file, a log, a command line or this repository, and its
-#   other child processes never inherit it. Presetting XSSK_PASS in the
-#   environment skips the prompt (automation/tests) — then YOU own where
-#   that value lives (shell history, CI logs...).
+#   other child processes never inherit it (a preset XSSK_PASS is moved
+#   out of the exported environment at startup). Presetting XSSK_PASS
+#   skips the prompt (automation/tests) — then YOU own where that value
+#   lives before it reaches this script (shell history, CI logs...).
 # - Signing runs inside PixInsight (Security.generateScriptSignatureFile),
 #   so a local PixInsight installation is required; override the detected
 #   executable with PIXINSIGHT_BIN. Only the main script (the one carrying
@@ -69,6 +70,12 @@
 #   RELEASE_DATE=YYYYMMDD scripts/build-update-package.sh   # date override
 # ============================================================================
 set -euo pipefail
+
+# If the key password was preset in the environment (automation), move it
+# out of the exported environment IMMEDIATELY: no child of this script may
+# inherit it. It is re-injected only into the PixInsight invocation.
+XSSK_PASS_LOCAL="${XSSK_PASS:-}"
+unset XSSK_PASS
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_JS="$REPO_ROOT/DarkFrameAnalyzer.js"
@@ -104,9 +111,12 @@ esac
 
 ZIP_NAME="DarkFrameAnalyzer-$VERSION.zip"
 
-mkdir -p "$DIST_DIR"
+# Clean slate: a failed build must never leave a previous run's artifacts
+# behind (a publish glob would ship them), and old-version zips must not
+# accumulate next to the current one
 rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR"
+rm -f "$DIST_DIR"/DarkFrameAnalyzer-*.zip "$DIST_DIR/update-package.json"
 
 # --- Stage the exact bytes that ship ---------------------------------------
 # CRLF -> LF normalized byte-exactly (python, not a line-oriented tool) so
@@ -131,10 +141,10 @@ if [ -n "${XSSK_PATH:-}" ]; then
    fi
 
    # These paths are interpolated into a generated PJSR string literal:
-   # reject characters that would break out of it
+   # reject characters that would break out of it or split it
    case "$XSSK_PATH$STAGE_DIR" in
-      *\"*|*\\*)
-         echo "ERROR: paths used by the signing driver must not contain '\"' or '\\'" >&2
+      *\"*|*\\*|*$'\n'*)
+         echo "ERROR: paths used by the signing driver must not contain quotes, backslashes or newlines" >&2
          exit 1 ;;
    esac
 
@@ -155,15 +165,15 @@ if [ -n "${XSSK_PATH:-}" ]; then
       exit 1
    fi
 
-   # Key password: prompted on the terminal; a preset XSSK_PASS skips the
-   # prompt for automation/tests (see the header for the caveat)
-   if [ -z "${XSSK_PASS:-}" ]; then
+   # Key password: prompted on the terminal; a preset XSSK_PASS (captured
+   # and un-exported at startup) skips the prompt for automation/tests
+   if [ -z "$XSSK_PASS_LOCAL" ]; then
       if [ ! -t 0 ]; then
          echo "ERROR: no terminal to prompt for the key password" >&2
          echo "       (preset XSSK_PASS in the environment for non-interactive runs)" >&2
          exit 1
       fi
-      read -r -s -p "Password for $(basename "$XSSK_PATH"): " XSSK_PASS
+      read -r -s -p "Password for $(basename "$XSSK_PATH"): " XSSK_PASS_LOCAL
       echo
    fi
 
@@ -195,21 +205,24 @@ EOF
    # other children never inherit it, and WSLENV (scoped the same way)
    # forwards it across the WSL->Windows boundary when needed.
    PI_STATUS=0
-   XSSK_PASS="$XSSK_PASS" WSLENV="${WSLENV:+$WSLENV:}XSSK_PASS" \
+   XSSK_PASS="$XSSK_PASS_LOCAL" WSLENV="${WSLENV:+$WSLENV:}XSSK_PASS" \
       "$PI_BIN" -n --run="$(to_pi_path "$SIGN_TMP/sign.js")" --force-exit \
       > "$SIGN_TMP/pi.log" 2>&1 || PI_STATUS=$?
-   XSSK_PASS=""
 
    if [ "$PI_STATUS" -ne 0 ] || [ ! -s "$STAGE_DIR/DarkFrameAnalyzer.xsgn" ]; then
-      echo "ERROR: signing failed — PixInsight exit=$PI_STATUS, .xsgn $(
-         [ -s "$STAGE_DIR/DarkFrameAnalyzer.xsgn" ] && echo "present" || echo "missing or empty")" >&2
+      echo "ERROR: signing failed — PixInsight exit=$PI_STATUS (output below)" >&2
       echo "--- PixInsight output ------------------------------------------" >&2
-      cat "$SIGN_TMP/pi.log" >&2 || true
+      # Redacted line by line in pure bash: the password must never reach
+      # a durable log, and must not appear on any command line either
+      while IFS= read -r line; do
+         [ -n "$XSSK_PASS_LOCAL" ] && line="${line//"$XSSK_PASS_LOCAL"/[redacted]}"
+         printf '%s\n' "$line" >&2
+      done < "$SIGN_TMP/pi.log"
       echo "----------------------------------------------------------------" >&2
       echo "See the FIRST-SIGNING CHECKLIST in this script's header." >&2
-      rm -f "$STAGE_DIR/DarkFrameAnalyzer.xsgn"
       exit 1
    fi
+   XSSK_PASS_LOCAL=""
 else
    echo "NOTE: UNSIGNED package (CPD identity pending validation by Pleiades)."
    echo "      Set XSSK_PATH=/path/to/key.xssk to enable code signing."

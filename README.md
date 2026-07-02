@@ -137,9 +137,10 @@ XSSK_PATH=/path/to/key.xssk scripts/build-update-package.sh <version>
 
 The key password is prompted on the terminal and handed to PixInsight as
 a command-scoped environment variable — the build never writes it to a
-file, a log or a command line. Presetting `XSSK_PASS` in the environment
-skips the prompt (for automation); if you do that, the value lives in
-*your* shell history or CI configuration, outside this guarantee.
+file, a log or a command line, and none of its other child processes see
+it. Presetting `XSSK_PASS` in the environment skips the prompt (for
+automation): the build un-exports it immediately, but the value then
+lives in *your* shell history or CI configuration before reaching it.
 Signing runs inside a local PixInsight installation and adds the `.xsgn`
 next to the script in the zip. A signed zip is not byte-reproducible
 across signings (the signature is timestamped): each signing produces a
