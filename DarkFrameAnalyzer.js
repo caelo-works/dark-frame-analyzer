@@ -1,17 +1,17 @@
 // ============================================================================
-// DarkFrameAnalyzer.js — Analyse de serie de darks pour PixInsight
+// DarkFrameAnalyzer.js — Dark frame series analysis for PixInsight
 // ============================================================================
 //
-// Analyse une serie de darks FITS, calcule les statistiques cles pour chaque
-// brute, identifie les outliers pour exclusion avant empilement dans WBPP.
+// Analyzes a series of dark FITS frames, computes key statistics for each
+// frame and identifies outliers to exclude before WBPP integration.
 //
 // ATR585C calibration pipeline
 // ============================================================================
 
 #feature-id    Utilities > DarkFrameAnalyzer
-#feature-info  Analyse de serie de darks astrophotographiques pour detection \
-               d'outliers avant empilement WBPP. Calcule median, MAD, hot pixels, \
-               uniformite spatiale et detecte les frames hors norme.
+#feature-info  Astrophotography dark series analysis for outlier detection \
+               before WBPP integration. Computes median, MAD, hot pixels and \
+               spatial uniformity, and flags out-of-spec frames.
 
 #include <pjsr/Sizer.jsh>
 #include <pjsr/NumericControl.jsh>
@@ -22,13 +22,13 @@
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
 
-#define VERSION "1.2.0"
+#define VERSION "1.3.0"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
 
 // ============================================================================
-// CONFIGURATION PAR DEFAUT
+// DEFAULT CONFIGURATION
 // ============================================================================
 
 var DEFAULT_PARAMS = {
@@ -401,7 +401,7 @@ function tr(key)
 
 
 // ============================================================================
-// HELPERS — STATISTIQUES SUR TABLEAUX JS
+// HELPERS — STATISTICS ON JS ARRAYS
 // ============================================================================
 
 function arrayMedian(arr)
@@ -416,7 +416,7 @@ function arrayMedian(arr)
 
 function arrayMAD(arr)
 {
-   // MAD normalise x1.4826 (sigma-equivalent, comme mad_std d'astropy)
+   // MAD normalized x1.4826 (sigma-equivalent, like astropy's mad_std)
    var med = arrayMedian(arr);
    var deviations = [];
    for (var i = 0; i < arr.length; ++i)
@@ -483,13 +483,13 @@ function truncateFilename(name, maxLen)
 
 
 // ============================================================================
-// LECTURE DES KEYWORDS FITS
+// FITS KEYWORD READING
 // ============================================================================
 
 function readFITSKeywordsFromWindow(window)
 {
-   // Lit les keywords FITS directement depuis l'ImageWindow ouverte
-   // (PI les extrait deja lors de l'ouverture du fichier)
+   // Reads FITS keywords straight from the open ImageWindow
+   // (PI already extracts them when opening the file)
    var result = {
       gain: null,
       offset: null,
@@ -507,7 +507,7 @@ function readFITSKeywordsFromWindow(window)
       for (var i = 0; i < keywords.length; ++i) {
          var kw = keywords[i];
          var name = kw.name.trim();
-         // strippedValue retire les quotes des valeurs FITS string
+         // strippedValue removes the quotes of FITS string values
          var val = kw.strippedValue.trim();
 
          switch (name) {
@@ -525,7 +525,7 @@ function readFITSKeywordsFromWindow(window)
       }
    }
    catch (e) {
-      console.warningln("Erreur lecture keywords: " + e.message);
+      console.warningln("Error reading keywords: " + e.message);
    }
 
    return result;
@@ -533,7 +533,7 @@ function readFITSKeywordsFromWindow(window)
 
 
 // ============================================================================
-// ANALYSE D'UN DARK INDIVIDUEL
+// SINGLE DARK FRAME ANALYSIS
 // ============================================================================
 
 function analyzeSingleDark(filePath, params)
@@ -576,7 +576,7 @@ function analyzeSingleDark(filePath, params)
       severity: "ok"
    };
 
-   // Ouvrir l'image
+   // Open the image
    var windows;
    try {
       windows = ImageWindow.open(filePath);
@@ -594,7 +594,7 @@ function analyzeSingleDark(filePath, params)
    var window = windows[0];
    var image = window.mainView.image;
 
-   // Lire les keywords FITS depuis la window ouverte
+   // Read the FITS keywords from the open window
    var kw = readFITSKeywordsFromWindow(window);
    metrics.gain = kw.gain;
    metrics.offset = kw.offset;
@@ -611,12 +611,12 @@ function analyzeSingleDark(filePath, params)
       metrics.width = image.width;
       metrics.height = image.height;
 
-      // Si image multi-canal (CFA debayerisee ?), utiliser channel 0
+      // Multi-channel image (debayered CFA?): use channel 0
       if (image.numberOfChannels > 1)
          image.selectedChannel = 0;
 
-      // --- Statistiques de base (via le moteur C++ de PI) ---
-      // Toutes les valeurs PI sont en [0,1], on convertit en ADU x65535
+      // --- Basic statistics (through PI's C++ engine) ---
+      // All PI values are in [0,1]; converted to ADU x65535
 
       metrics.min = image.minimum() * SCALE;
       metrics.max = image.maximum() * SCALE;
@@ -624,16 +624,16 @@ function analyzeSingleDark(filePath, params)
       metrics.median = image.median() * SCALE;
       metrics.stdDev = image.stdDev() * SCALE;
 
-      // --- MAD robuste via avgDev ---
-      // Pour une distribution gaussienne :
+      // --- Robust MAD through avgDev ---
+      // For a Gaussian distribution:
       //   avgDev = sigma * sqrt(2/pi) = sigma * 0.7979
       //   mad_std (sigma-equivalent) = sigma
-      // Donc: mad_std = avgDev / 0.7979 = avgDev * 1.2533
+      // Hence: mad_std = avgDev / 0.7979 = avgDev * 1.2533
       metrics.mad = image.avgDev() * SCALE * 1.2533;
 
-      // --- Stats clippees (2 passes) ---
-      // 1) On a deja median et MAD
-      // 2) On clippe a median +/- 3*MAD_sigma et on recalcule mean/stdDev
+      // --- Clipped statistics (2 passes) ---
+      // 1) median and MAD are already known
+      // 2) clip at median +/- 3*MAD_sigma and recompute mean/stdDev
       var clipLow = (metrics.median - 3.0 * metrics.mad) / SCALE;
       var clipHigh = (metrics.median + 3.0 * metrics.mad) / SCALE;
       if (clipLow < 0) clipLow = 0;
@@ -647,12 +647,12 @@ function analyzeSingleDark(filePath, params)
       metrics.medianClip = image.median() * SCALE;
       metrics.stdClip = image.stdDev() * SCALE;
 
-      // Desactiver le clipping pour les stats suivantes
+      // Disable clipping for the next statistics
       image.rangeClippingEnabled = false;
 
-      // --- Comptage de hot pixels via histogramme ---
-      // On construit un histogramme 16-bit (65536 bins) en une seule passe C++,
-      // puis on somme les bins au-dessus de chaque seuil en JS (instantane)
+      // --- Hot pixel counting through the histogram ---
+      // Build a 16-bit histogram (65536 bins) in a single C++ pass, then
+      // sum the bins above each threshold in JS (instantaneous)
       var histogram = computeHistogramCounts(image);
 
       metrics.nHot1k = sumBinsAbove(histogram, 1000);
@@ -661,23 +661,23 @@ function analyzeSingleDark(filePath, params)
       metrics.nSaturated = sumBinsAbove(histogram, 65500);
       metrics.nZero = histogram[0];
 
-      // --- Ecart de temperature ---
+      // --- Temperature deviation ---
       if (metrics.setTemp !== null && metrics.ccdTemp !== null) {
          metrics.tempDeviation = Math.abs(metrics.ccdTemp - metrics.setTemp);
       }
 
-      // --- Uniformite spatiale (centre + 4 coins) ---
+      // --- Spatial uniformity (center + 4 corners) ---
       var ps = params.patchSize;
       var h = image.height;
       var w = image.width;
 
       if (h > ps * 2 && w > ps * 2) {
-         // Centre
+         // Center
          var cx = Math.floor(w / 2 - ps / 2);
          var cy = Math.floor(h / 2 - ps / 2);
          var centreMedian = patchMedian(image, cx, cy, ps, ps);
 
-         // 4 coins
+         // 4 corners
          var corners = [
             patchMedian(image, 0, 0, ps, ps),
             patchMedian(image, w - ps, 0, ps, ps),
@@ -695,7 +695,7 @@ function analyzeSingleDark(filePath, params)
       metrics.error = e.message;
    }
 
-   // Fermer l'image immediatement pour liberer la memoire
+   // Close the image immediately to free memory
    window.forceClose();
 
    return metrics;
@@ -703,13 +703,13 @@ function analyzeSingleDark(filePath, params)
 
 
 // ============================================================================
-// HELPERS STATISTIQUES IMAGE
+// IMAGE STATISTICS HELPERS
 // ============================================================================
 
 function computeHistogramCounts(image)
 {
-   // Construit un histogramme 16-bit (65536 bins) via la classe Histogram de PJSR
-   // Retourne un tableau JS ou index = valeur ADU, valeur = nombre de pixels
+   // Builds a 16-bit histogram (65536 bins) through PJSR's Histogram class.
+   // Returns a JS array where index = ADU value, value = pixel count
    var resolution = 65536;
    var counts = new Array(resolution);
    for (var i = 0; i < resolution; ++i) counts[i] = 0;
@@ -721,26 +721,23 @@ function computeHistogramCounts(image)
          counts[i] = H.count(i);
    }
    catch (e) {
-      // Fallback: utiliser l'histogramme 16-bit de l'image
-      // Si la classe Histogram n'est pas disponible sous cette forme,
-      // on essaie via image.histogramLevel()
-      console.warningln("Histogram API: " + e.message + " - tentative fallback...");
+      // Fallback: rebuild the histogram manually, pixel by pixel, if the
+      // Histogram class is not available in this form
+      console.warningln("Histogram API: " + e.message + " - trying fallback...");
       try {
-         // Approche alternative: lire le nombre de bins via ImageStatistics
-         // et reconstituer manuellement
          for (var y = 0; y < image.height; ++y) {
             for (var x = 0; x < image.width; ++x) {
                var val = Math.round(image.sample(x, y) * 65535);
                if (val >= 0 && val < resolution)
                   counts[val]++;
             }
-            // Afficher la progression tous les 100 lignes
+            // Keep the UI alive every few hundred rows
             if (y % 500 === 0)
                processEvents();
          }
       }
       catch (e2) {
-         console.warningln("Fallback histogram échoué: " + e2.message);
+         console.warningln("Histogram fallback failed: " + e2.message);
       }
    }
 
@@ -765,12 +762,12 @@ function patchMedian(image, x0, y0, w, h)
 
 
 // ============================================================================
-// DETECTION D'OUTLIERS
+// OUTLIER DETECTION
 // ============================================================================
 
 function detectOutliers(allMetrics, params)
 {
-   // Filtrer les metriques valides
+   // Keep only valid metrics
    var valid = [];
    for (var i = 0; i < allMetrics.length; ++i) {
       if (allMetrics[i].error === null)
@@ -778,7 +775,7 @@ function detectOutliers(allMetrics, params)
    }
 
    if (valid.length < 3) {
-      // Pas assez de donnees pour une detection statistique
+      // Not enough data for a statistical detection
       for (var i = 0; i < allMetrics.length; ++i) {
          allMetrics[i].flags = [];
          allMetrics[i].severity = (allMetrics[i].error === null) ? "ok" : "critical";
@@ -786,7 +783,7 @@ function detectOutliers(allMetrics, params)
       return { metrics: allMetrics, refs: null };
    }
 
-   // References de la serie
+   // Series references
    var medians = [], mads = [], hotpx = [];
    for (var i = 0; i < valid.length; ++i) {
       medians.push(valid[i].medianClip);
@@ -801,7 +798,7 @@ function detectOutliers(allMetrics, params)
    var refHotpx = arrayMedian(hotpx);
    var refHotpxMad = arrayMAD(hotpx);
 
-   // Planchers anti-quantification (fallback si dispersion ~0)
+   // Anti-quantization floors (fallback when dispersion is ~0)
    var effectiveMedianDisp = Math.max(refMedianMad, 1.0);
    var effectiveMadDisp = Math.max(refMadMad, 0.5);
    var effectiveHotpxDisp = Math.max(refHotpxMad, refHotpx * 0.003, 1.0);
@@ -899,7 +896,7 @@ function detectOutliers(allMetrics, params)
 
 
 // ============================================================================
-// RAPPORT CONSOLE
+// CONSOLE REPORT
 // ============================================================================
 
 function generateConsoleReport(allMetrics, refs, params)
@@ -1161,8 +1158,8 @@ var CSV_SEP = ";";
 
 function csvField(val)
 {
-   // Champ texte : vide si absent, quote si le contenu contient
-   // le separateur, des quotes ou un retour ligne
+   // Text field: empty when absent, quoted when the content contains
+   // the separator, quotes or a line break
    if (val === null || val === undefined) return "";
    var s = String(val);
    if (s.indexOf(CSV_SEP) >= 0 || s.indexOf('"') >= 0 || s.indexOf("\n") >= 0)
@@ -1172,7 +1169,7 @@ function csvField(val)
 
 function csvNum(val, decimals)
 {
-   // Champ numerique : vide si absent, decimales avec point
+   // Numeric field: empty when absent, decimal point notation
    if (val === null || val === undefined) return "";
    if (decimals === 0) return String(Math.round(val));
    return val.toFixed(decimals);
@@ -1197,7 +1194,7 @@ function buildCsv(allMetrics)
 
    var lines = [header.join(CSV_SEP)];
 
-   // Meme ordre que le rapport console : tri par date d'observation
+   // Same order as the console report: sorted by observation date
    var sorted = allMetrics.slice().sort(function(a, b) {
       var da = a.dateObs || "";
       var db = b.dateObs || "";
@@ -1249,7 +1246,7 @@ function buildCsv(allMetrics)
 
 function writeTextFileCompat(path, text)
 {
-   // File.writeTextFile n'existe pas sur les vieilles versions de PI
+   // File.writeTextFile does not exist in old PI versions
    if (typeof File.writeTextFile === "function") {
       File.writeTextFile(path, text);
       return;
@@ -1262,7 +1259,7 @@ function writeTextFileCompat(path, text)
 
 
 // ============================================================================
-// DIALOG LISTE D'EXCLUSION WBPP
+// WBPP EXCLUSION LIST DIALOG
 // ============================================================================
 
 function ExclusionDialog(parentDialog, allMetrics)
@@ -1458,7 +1455,7 @@ ExclusionDialog.prototype.moveToRejected = function()
 
 
 // ============================================================================
-// DIALOG GUI
+// MAIN DIALOG
 // ============================================================================
 
 function DarkAnalyzerDialog()
@@ -1787,7 +1784,7 @@ DarkAnalyzerDialog.prototype = new Dialog();
 
 
 // ============================================================================
-// METHODES DU DIALOG
+// DIALOG METHODS
 // ============================================================================
 
 DarkAnalyzerDialog.prototype.createNumericControl = function(minVal, maxVal, defaultVal, precision)
@@ -1859,7 +1856,7 @@ DarkAnalyzerDialog.prototype.applyLanguage = function()
 
 DarkAnalyzerDialog.prototype.addFile = function(filePath)
 {
-   // Eviter les doublons
+   // Skip duplicates
    for (var i = 0; i < this.filePaths.length; ++i) {
       if (this.filePaths[i] === filePath) return;
    }
@@ -1873,8 +1870,8 @@ DarkAnalyzerDialog.prototype.addFile = function(filePath)
    node.setText(0, padLeft(String(num), 4));
    node.setAlignment(0, TextAlign_Left);
    node.setText(1, fname);
-   node.setText(8, filePath);  // identifiant unique de la ligne
-   // Colonnes 2-7 restent vides jusqu'a l'analyse
+   node.setText(8, filePath);  // unique row identifier
+   // Columns 2-7 stay empty until the analysis
 };
 
 DarkAnalyzerDialog.prototype.removeFileByPath = function(filePath)
@@ -1906,8 +1903,8 @@ DarkAnalyzerDialog.prototype.findNodeByPath = function(filePath)
 
 DarkAnalyzerDialog.prototype.renumberRows = function()
 {
-   // Numeros cales a droite pour que le tri texte de la colonne #
-   // respecte l'ordre numerique ("   2" avant "  10")
+   // Right-aligned numbers so the text sort of the # column matches
+   // numeric order ("   2" before "  10")
    for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
       this.fileTreeBox.child(i).setText(0, padLeft(String(i + 1), 4));
    }
@@ -1915,9 +1912,9 @@ DarkAnalyzerDialog.prototype.renumberRows = function()
 
 DarkAnalyzerDialog.prototype.setBusy = function(busy)
 {
-   // processEvents() rend la GUI reactive pendant l'analyse : on verrouille
-   // tous les controles pour empecher un second run ou une modification de
-   // la liste des fichiers en plein traitement.
+   // processEvents() keeps the GUI responsive during the analysis: lock
+   // every control to prevent a second run or a change of the file list
+   // in the middle of a run.
    this.busy = busy;
    var enabled = !busy;
    this.analyzeButton.enabled = enabled;
@@ -2032,15 +2029,14 @@ DarkAnalyzerDialog.prototype.runAnalysis = function()
 
 DarkAnalyzerDialog.prototype.doAnalysis = function()
 {
-   // Lire les parametres de la GUI
+   // Read the parameters from the GUI
    this.readParamsFromGUI();
 
-   // Reinitialiser les resultats
+   // Reset the results
    this.allMetrics = [];
    this.refs = null;
 
-
-   // Reinitialiser l'affichage des colonnes
+   // Reset the result columns
    for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
       var node = this.fileTreeBox.child(i);
       for (var c = 2; c < 8; ++c)
@@ -2074,12 +2070,12 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
    var elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
    console.writeln(tr("run.elapsed", elapsed));
 
-   // Phase 2 : Detection d'outliers sur l'ensemble
+   // Phase 2: outlier detection over the whole series
    var result = detectOutliers(this.allMetrics, this.params);
    this.allMetrics = result.metrics;
    this.refs = result.refs;
 
-   // Phase 3 : Mise a jour des couleurs de severite
+   // Phase 3: severity color update
    var nOk = 0, nWarn = 0, nCrit = 0;
    for (var i = 0; i < this.allMetrics.length; ++i) {
       this.updateRowSeverity(this.allMetrics[i]);
@@ -2159,7 +2155,7 @@ DarkAnalyzerDialog.prototype.showExclusions = function()
 
 
 // ============================================================================
-// POINT D'ENTREE
+// ENTRY POINT
 // ============================================================================
 
 function main()
