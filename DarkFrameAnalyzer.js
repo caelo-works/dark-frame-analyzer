@@ -22,7 +22,7 @@
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
 
-#define VERSION "1.5.0"
+#define VERSION "1.6.0"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
@@ -35,14 +35,22 @@ var DEFAULT_PARAMS = {
    outlierSigmaMedian:    3.0,
    outlierSigmaMad:       3.0,
    outlierSigmaHotpx:     3.0,
+   outlierSigmaUniformity: 3.0,
    tempDeviationMax:      0.5,
    hotPixelThresholdADU:  5000,
    saturatedPixelsMax:    1000,
    medianAbsDeviationWarn: 80.0,
    medianAbsDeviationCrit: 128.0,
    madAbsDeviationWarn:   20.0,
+   uniformityDeltaMax:    100.0,
    patchSize:             200
 };
+
+// TreeBox column layout
+var COL_DELTA = 7;   // corner-vs-center gradient (ADU)
+var COL_STATE = 8;   // severity / status
+var COL_PATH  = 9;   // hidden: full file path (unique row identifier)
+var NUM_COLS  = 10;
 
 
 // ============================================================================
@@ -71,6 +79,7 @@ var STRINGS = {
       "col.noise":         "Noise",
       "col.hotpx":         "Hot px",
       "col.sat":           "Sat.",
+      "col.unif":          "Δ corn.",
       "col.state":         "Status",
       "files.group":       "Darks",
       "btn.addFiles":      "+ Darks",
@@ -101,6 +110,9 @@ var STRINGS = {
       "sat.group":         "Saturation",
       "sat.hint":          "Maximum number of saturated pixels accepted per dark.",
       "sat.max":           "Max saturated pixels:",
+      "unif.group":        "Uniformity",
+      "unif.hint":         "Compares center vs corner medians (amp glow, gradients).",
+      "unif.deltaMax":     "Max gradient (ADU):",
       "btn.analyze":       "Analyze",
       "btn.analyze.tt":    "Run the analysis on all darks",
       "btn.exportCsv":     "Export CSV...",
@@ -163,6 +175,7 @@ var STRINGS = {
       "rep.statMad":       "Robust MAD (ADU)",
       "rep.statHot":       "Hot pixels > 5000",
       "rep.statSat":       "Saturated pixels",
+      "rep.statDelta":     "Corner Δ (ADU)",
       "rep.statTemp":      "CCD temperature (C)",
       "rep.alertsTitle":   "ALERTS - OUT-OF-SPEC DARKS (%1/%2)",
       "rep.noAnomaly":     "No anomaly detected. Homogeneous, good-quality series.",
@@ -189,6 +202,8 @@ var STRINGS = {
       "flag.hotpx":        "unusual hot pixel count (%1 vs ref %2, %3s)",
       "flag.tempDrift":    "thermal drift (%1 °C)",
       "flag.saturation":   "massive saturation (%1 pixels)",
+      "flag.uniformity":   "abnormal uniformity (corner Δ=%1 vs ref %2, %3s)",
+      "flag.uniformityAbs": "high spatial gradient (corner Δ=%1 ADU)",
       "flag.sigmaSuffix":  ", %1s",
 
       // WBPP exclusion dialog
@@ -225,6 +240,7 @@ var STRINGS = {
       "col.noise":         "Bruit",
       "col.hotpx":         "Hot px",
       "col.sat":           "Sat.",
+      "col.unif":          "Δ coins",
       "col.state":         "Etat",
       "files.group":       "Darks",
       "btn.addFiles":      "+ Darks",
@@ -255,6 +271,9 @@ var STRINGS = {
       "sat.group":         "Saturation",
       "sat.hint":          "Nombre max de pixels saturés accepté par dark.",
       "sat.max":           "Pixels saturés max :",
+      "unif.group":        "Uniformité",
+      "unif.hint":         "Compare la médiane du centre à celle des coins (amp glow, gradients).",
+      "unif.deltaMax":     "Gradient max (ADU) :",
       "btn.analyze":       "Analyser",
       "btn.analyze.tt":    "Lancer l'analyse de tous les darks",
       "btn.exportCsv":     "Exporter CSV...",
@@ -317,6 +336,7 @@ var STRINGS = {
       "rep.statMad":       "MAD robuste (ADU)",
       "rep.statHot":       "Hot pixels > 5000",
       "rep.statSat":       "Pixels saturés",
+      "rep.statDelta":     "Δ coins (ADU)",
       "rep.statTemp":      "Température CCD (C)",
       "rep.alertsTitle":   "ALERTES - DARKS HORS NORME (%1/%2)",
       "rep.noAnomaly":     "Aucune anomalie détectée. Série homogène et de qualité.",
@@ -343,6 +363,8 @@ var STRINGS = {
       "flag.hotpx":        "hot pixels inhabituel(s) (%1 vs ref %2, %3s)",
       "flag.tempDrift":    "dérive thermique (%1 °C)",
       "flag.saturation":   "saturation massive (%1 pixels)",
+      "flag.uniformity":   "uniformité anormale (Δ coins=%1 vs ref %2, %3s)",
+      "flag.uniformityAbs": "gradient spatial élevé (Δ coins=%1 ADU)",
       "flag.sigmaSuffix":  ", %1s",
 
       // Fenêtre d'exclusions WBPP
@@ -855,11 +877,13 @@ function detectOutliers(allMetrics, params)
    }
 
    // Series references
-   var medians = [], mads = [], hotpx = [];
+   var medians = [], mads = [], hotpx = [], deltas = [];
    for (var i = 0; i < valid.length; ++i) {
       medians.push(valid[i].medianClip);
       mads.push(valid[i].mad);
       hotpx.push(valid[i].nHot5k);
+      if (valid[i].maxCornerDelta !== null)
+         deltas.push(valid[i].maxCornerDelta);
    }
 
    var refMedian = arrayMedian(medians);
@@ -868,11 +892,15 @@ function detectOutliers(allMetrics, params)
    var refMadMad = arrayMAD(mads);
    var refHotpx = arrayMedian(hotpx);
    var refHotpxMad = arrayMAD(hotpx);
+   // Uniformity reference only when enough frames provide the metric
+   var refDelta = (deltas.length >= 3) ? arrayMedian(deltas) : null;
+   var refDeltaMad = (deltas.length >= 3) ? arrayMAD(deltas) : null;
 
    // Anti-quantization floors (fallback when dispersion is ~0)
    var effectiveMedianDisp = Math.max(refMedianMad, 1.0);
    var effectiveMadDisp = Math.max(refMadMad, 0.5);
    var effectiveHotpxDisp = Math.max(refHotpxMad, refHotpx * 0.003, 1.0);
+   var effectiveDeltaDisp = (refDelta !== null) ? Math.max(refDeltaMad, 2.0) : null;
 
    // Flag each dark
    for (var i = 0; i < allMetrics.length; ++i) {
@@ -937,6 +965,22 @@ function detectOutliers(allMetrics, params)
          if (severity !== "critical") severity = "warning";
       }
 
+      // --- Spatial uniformity check (amp glow, gradients, light leaks) ---
+      if (m.maxCornerDelta !== null) {
+         if (Math.abs(m.maxCornerDelta) > params.uniformityDeltaMax) {
+            flags.push(tr("flag.uniformityAbs", m.maxCornerDelta.toFixed(1)));
+            if (severity !== "critical") severity = "warning";
+         }
+         else if (refDelta !== null) {
+            var zDelta = Math.abs(m.maxCornerDelta - refDelta) / effectiveDeltaDisp;
+            if (zDelta > params.outlierSigmaUniformity) {
+               flags.push(tr("flag.uniformity", m.maxCornerDelta.toFixed(1),
+                  refDelta.toFixed(1), zDelta.toFixed(1)));
+               if (severity !== "critical") severity = "warning";
+            }
+         }
+      }
+
       // --- Temperature check ---
       if (m.tempDeviation !== null && m.tempDeviation > params.tempDeviationMax) {
          flags.push(tr("flag.tempDrift", m.tempDeviation.toFixed(2)));
@@ -959,7 +1003,9 @@ function detectOutliers(allMetrics, params)
       refMad: refMad,
       refMadMad: refMadMad,
       refHotpx: refHotpx,
-      refHotpxMad: refHotpxMad
+      refHotpxMad: refHotpxMad,
+      refDelta: refDelta,
+      refDeltaMad: refDeltaMad
    };
 
    return { metrics: allMetrics, refs: refs };
@@ -1096,6 +1142,15 @@ function generateConsoleReport(allMetrics, refs, params)
          statRows[2].vals.push(valid[i].nHot5k);
          statRows[3].vals.push(valid[i].nSaturated);
       }
+
+      // Spatial uniformity (only frames providing the metric)
+      var deltaRow = { name: tr("rep.statDelta"), vals: [] };
+      for (var i = 0; i < valid.length; ++i) {
+         if (valid[i].maxCornerDelta !== null)
+            deltaRow.vals.push(valid[i].maxCornerDelta);
+      }
+      if (deltaRow.vals.length > 0)
+         statRows.push(deltaRow);
 
       for (var r = 0; r < statRows.length; ++r) {
          var v = statRows[r].vals;
@@ -1587,11 +1642,11 @@ function DarkAnalyzerDialog()
    this.fileTreeBox.headerSorting = true;
    this.fileTreeBox.multipleSelection = true;
    this.fileTreeBox.sort(1, false);
-   // Hidden column 8 holds the full file path: it is the unique row
-   // identifier. Sorts (automatic or via headers) reorder the rows,
+   // Hidden column COL_PATH holds the full file path: it is the unique
+   // row identifier. Sorts (automatic or via headers) reorder the rows,
    // so rows are never accessed by index.
-   this.fileTreeBox.numberOfColumns = 9;
-   this.fileTreeBox.setHeaderText(8, "");
+   this.fileTreeBox.numberOfColumns = NUM_COLS;
+   this.fileTreeBox.setHeaderText(COL_PATH, "");
 
    this.fileTreeBox.setColumnWidth(0, 50);
    this.fileTreeBox.setColumnWidth(1, 330);
@@ -1600,10 +1655,11 @@ function DarkAnalyzerDialog()
    this.fileTreeBox.setColumnWidth(4, 60);
    this.fileTreeBox.setColumnWidth(5, 60);
    this.fileTreeBox.setColumnWidth(6, 50);
-   this.fileTreeBox.setColumnWidth(7, 90);
-   this.fileTreeBox.setColumnWidth(8, 0);
+   this.fileTreeBox.setColumnWidth(COL_DELTA, 70);
+   this.fileTreeBox.setColumnWidth(COL_STATE, 90);
+   this.fileTreeBox.setColumnWidth(COL_PATH, 0);
    if (typeof this.fileTreeBox.hideColumn === "function")
-      this.fileTreeBox.hideColumn(8);
+      this.fileTreeBox.hideColumn(COL_PATH);
    this.fileTreeBox.setMinSize(800, 300);
 
    // -----------------------------------------------------------------------
@@ -1651,7 +1707,7 @@ function DarkAnalyzerDialog()
       for (var i = self.fileTreeBox.numberOfChildren - 1; i >= 0; --i) {
          var node = self.fileTreeBox.child(i);
          if (node.selected) {
-            var path = node.text(8);
+            var path = node.text(COL_PATH);
             for (var j = 0; j < self.filePaths.length; ++j) {
                if (self.filePaths[j] === path) {
                   self.filePaths.splice(j, 1);
@@ -1773,11 +1829,28 @@ function DarkAnalyzerDialog()
    this.satGroup.sizer.add(this.satHint);
    this.satGroup.sizer.add(this.satPxMaxControl);
 
+   // --- Uniformity ---
+   this.sigmaUnifControl = this.createNumericControl(
+      0.5, 5.0, this.params.outlierSigmaUniformity, 1);
+   this.unifDeltaMaxControl = this.createNumericControl(
+      20, 1000, this.params.uniformityDeltaMax, 0);
+   this.unifHint = new Label(this);
+   this.unifHint.styleSheet = "QLabel { color: gray; font-style: italic; }";
+
+   this.unifGroup = new GroupBox(this);
+   this.unifGroup.sizer = new VerticalSizer();
+   this.unifGroup.sizer.margin = 6;
+   this.unifGroup.sizer.spacing = 4;
+   this.unifGroup.sizer.add(this.unifHint);
+   this.unifGroup.sizer.add(this.sigmaUnifControl);
+   this.unifGroup.sizer.add(this.unifDeltaMaxControl);
+
    // --- Two-column layout ---
    this.paramsCol1 = new VerticalSizer();
    this.paramsCol1.spacing = 6;
    this.paramsCol1.add(this.tempGroup);
    this.paramsCol1.add(this.medianGroup);
+   this.paramsCol1.add(this.unifGroup);
 
    this.paramsCol2 = new VerticalSizer();
    this.paramsCol2.spacing = 6;
@@ -1883,7 +1956,8 @@ DarkAnalyzerDialog.prototype.applyLanguage = function()
    this.fileTreeBox.setHeaderText(4, tr("col.noise"));
    this.fileTreeBox.setHeaderText(5, tr("col.hotpx"));
    this.fileTreeBox.setHeaderText(6, tr("col.sat"));
-   this.fileTreeBox.setHeaderText(7, tr("col.state"));
+   this.fileTreeBox.setHeaderText(COL_DELTA, tr("col.unif"));
+   this.fileTreeBox.setHeaderText(COL_STATE, tr("col.state"));
 
    this.filesGroupBox.title = tr("files.group");
    this.addFilesButton.text = tr("btn.addFiles");
@@ -1915,6 +1989,10 @@ DarkAnalyzerDialog.prototype.applyLanguage = function()
    this.satGroup.title = tr("sat.group");
    this.satHint.text = tr("sat.hint");
    this.satPxMaxControl.label.text = tr("sat.max");
+   this.unifGroup.title = tr("unif.group");
+   this.unifHint.text = tr("unif.hint");
+   this.sigmaUnifControl.label.text = tr("lbl.sigma");
+   this.unifDeltaMaxControl.label.text = tr("unif.deltaMax");
 
    this.analyzeButton.text = tr("btn.analyze");
    this.analyzeButton.toolTip = tr("btn.analyze.tt");
@@ -1941,7 +2019,7 @@ DarkAnalyzerDialog.prototype.addFile = function(filePath)
    node.setText(0, padLeft(String(num), 4));
    node.setAlignment(0, TextAlign_Left);
    node.setText(1, fname);
-   node.setText(8, filePath);  // unique row identifier
+   node.setText(COL_PATH, filePath);  // unique row identifier
    // Columns 2-7 stay empty until the analysis
 };
 
@@ -1954,7 +2032,7 @@ DarkAnalyzerDialog.prototype.removeFileByPath = function(filePath)
       }
    }
    for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
-      if (this.fileTreeBox.child(i).text(8) === filePath) {
+      if (this.fileTreeBox.child(i).text(COL_PATH) === filePath) {
          this.fileTreeBox.remove(i);
          break;
       }
@@ -1966,7 +2044,7 @@ DarkAnalyzerDialog.prototype.findNodeByPath = function(filePath)
 {
    for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
       var node = this.fileTreeBox.child(i);
-      if (node.text(8) === filePath)
+      if (node.text(COL_PATH) === filePath)
          return node;
    }
    return null;
@@ -2005,6 +2083,8 @@ DarkAnalyzerDialog.prototype.readParamsFromGUI = function()
    this.params.outlierSigmaMedian = this.sigmaMedianControl.value;
    this.params.outlierSigmaMad = this.sigmaMadControl.value;
    this.params.outlierSigmaHotpx = this.sigmaHotpxControl.value;
+   this.params.outlierSigmaUniformity = this.sigmaUnifControl.value;
+   this.params.uniformityDeltaMax = this.unifDeltaMaxControl.value;
    this.params.tempDeviationMax = this.tempDevControl.value;
    this.params.hotPixelThresholdADU = this.hotPxThreshControl.value;
    this.params.saturatedPixelsMax = this.satPxMaxControl.value;
@@ -2020,10 +2100,10 @@ DarkAnalyzerDialog.prototype.updateRowMetrics = function(m)
 
    if (m.error !== null) {
       node.setText(2, tr("state.err"));
-      node.setText(7, tr("state.error"));
-      node.setIcon(7, new Bitmap(this.scaledResource(":/bullets/bullet-ball-glass-red.png")));
-      node.setToolTip(7, tr("tt.error", m.error));
-      for (var c = 0; c < 8; ++c)
+      node.setText(COL_STATE, tr("state.error"));
+      node.setIcon(COL_STATE, new Bitmap(this.scaledResource(":/bullets/bullet-ball-glass-red.png")));
+      node.setToolTip(COL_STATE, tr("tt.error", m.error));
+      for (var c = 0; c < COL_PATH; ++c)
          node.setBackgroundColor(c, 0xFFFF6666);
       return;
    }
@@ -2033,7 +2113,8 @@ DarkAnalyzerDialog.prototype.updateRowMetrics = function(m)
    node.setText(4, m.mad.toFixed(1));
    node.setText(5, String(m.nHot5k));
    node.setText(6, String(m.nSaturated));
-   node.setText(7, "...");
+   node.setText(COL_DELTA, m.maxCornerDelta !== null ? m.maxCornerDelta.toFixed(1) : "N/A");
+   node.setText(COL_STATE, "...");
 };
 
 DarkAnalyzerDialog.prototype.updateRowSeverity = function(m)
@@ -2060,15 +2141,15 @@ DarkAnalyzerDialog.prototype.updateRowSeverity = function(m)
       sortKey = tr("state.rejected");
    }
 
-   for (var c = 0; c < 8; ++c)
+   for (var c = 0; c < COL_PATH; ++c)
       node.setBackgroundColor(c, color);
 
    // Colored icon + sort key in the status column. In both languages the
    // status words keep the same alphabetical order (Alert/Alerte < Error/
    // Erreur < Rejected/Rejet < Valid/Valide), so the severity sort of
-   // column 7 behaves identically.
-   node.setText(7, sortKey);
-   node.setIcon(7, new Bitmap(this.scaledResource(iconPath)));
+   // the status column behaves identically.
+   node.setText(COL_STATE, sortKey);
+   node.setIcon(COL_STATE, new Bitmap(this.scaledResource(iconPath)));
    var tooltip = "";
    if (m.flags && m.flags.length > 0) {
       tooltip = m.flags.join("\n");
@@ -2076,7 +2157,7 @@ DarkAnalyzerDialog.prototype.updateRowSeverity = function(m)
    else {
       tooltip = tr("tt.noAnomaly");
    }
-   node.setToolTip(7, tooltip);
+   node.setToolTip(COL_STATE, tooltip);
 };
 
 DarkAnalyzerDialog.prototype.runAnalysis = function()
@@ -2110,9 +2191,9 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
    // Reset the result columns
    for (var i = 0; i < this.fileTreeBox.numberOfChildren; ++i) {
       var node = this.fileTreeBox.child(i);
-      for (var c = 2; c < 8; ++c)
+      for (var c = 2; c < COL_PATH; ++c)
          node.setText(c, "");
-      for (var c = 0; c < 8; ++c)
+      for (var c = 0; c < COL_PATH; ++c)
          node.setBackgroundColor(c, 0x00000000);
    }
 
@@ -2164,7 +2245,7 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
       "<b><span style='color: #CC0000;'>" + nCrit + " " + tr("sum.crit") + "</span></b>";
 
    // Sort by severity (criticals on top)
-   this.fileTreeBox.sort(7, true);
+   this.fileTreeBox.sort(COL_STATE, true);
    this.renumberRows();
 
    // Full console report
