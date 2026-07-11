@@ -10,10 +10,14 @@
 #       Tree relative to the PixInsight installation directory, extracted
 #       as-is by the updater:
 #           src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.js
+#           src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.svg
 #           src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.xsgn
 #                                                        (signed builds only)
-#       Contains ONLY what must be installed into PixInsight (no Python
-#       reference script, no README/LICENSE).
+#           rsc/icons/script/DarkFrameAnalyzer/DarkFrameAnalyzer.svg
+#       The icon ships twice: the rsc/ copy backs the #feature-icon
+#       directive (@script_icons_dir), the copy next to the script backs
+#       the dialog header emblem. Contains ONLY what must be installed
+#       into PixInsight (no README/LICENSE).
 #
 #   update-package.json
 #       Metadata contract ingested by the site repository
@@ -79,9 +83,11 @@ unset XSSK_PASS
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_JS="$REPO_ROOT/DarkFrameAnalyzer.js"
+SCRIPT_SVG="$REPO_ROOT/DarkFrameAnalyzer.svg"
 DIST_DIR="$REPO_ROOT/dist"
 STAGE_DIR="$DIST_DIR/stage"
 INSTALL_PATH="src/scripts/CaeloWorks/DarkFrameAnalyzer"
+ICONS_PATH="rsc/icons/script/DarkFrameAnalyzer"
 
 # --- Version and title: single source of truth is the #define lines ------
 # The 'q' stops at the first match: a stray second #define would otherwise
@@ -123,14 +129,20 @@ rm -f "$DIST_DIR"/DarkFrameAnalyzer-*.zip "$DIST_DIR/update-package.json"
 # the staged bytes never depend on the sed implementation or the git
 # autocrlf setting of the build machine. A signature generated on the
 # staged file covers exactly the shipped bytes.
-python3 - "$SCRIPT_JS" "$STAGE_DIR/DarkFrameAnalyzer.js" <<'PYEOF'
+if [ ! -f "$SCRIPT_SVG" ]; then
+   echo "ERROR: icon not found: $SCRIPT_SVG" >&2
+   exit 1
+fi
+python3 - "$SCRIPT_JS" "$STAGE_DIR/DarkFrameAnalyzer.js" \
+          "$SCRIPT_SVG" "$STAGE_DIR/DarkFrameAnalyzer.svg" <<'PYEOF'
 import sys
 
-src, dest = sys.argv[1], sys.argv[2]
-with open(src, "rb") as f:
-    data = f.read()
-with open(dest, "wb") as f:
-    f.write(data.replace(b"\r\n", b"\n"))
+args = sys.argv[1:]
+for src, dest in zip(args[0::2], args[1::2]):
+    with open(src, "rb") as f:
+        data = f.read()
+    with open(dest, "wb") as f:
+        f.write(data.replace(b"\r\n", b"\n"))
 PYEOF
 
 # --- Optional code signing -------------------------------------------------
@@ -233,12 +245,15 @@ fi
 # order with a constant timestamp and fixed permissions, so identical
 # content always yields an identical archive (stable sha1). Only the
 # expected files may ship: anything else in the stage is a hard error.
-python3 - "$STAGE_DIR" "$DIST_DIR/$ZIP_NAME" "$INSTALL_PATH" <<'PYEOF'
+# The icon is written twice: next to the script (dialog header emblem) and
+# under rsc/icons (the #feature-icon @script_icons_dir location).
+python3 - "$STAGE_DIR" "$DIST_DIR/$ZIP_NAME" "$INSTALL_PATH" "$ICONS_PATH" <<'PYEOF'
 import sys, os, zipfile
 
-stage, dest, install_path = sys.argv[1], sys.argv[2], sys.argv[3]
+stage, dest, install_path, icons_path = sys.argv[1:5]
 FIXED_DATE = (2000, 1, 1, 0, 0, 0)  # constant mtime: sha1 depends on content only
-ALLOWED = {"DarkFrameAnalyzer.js", "DarkFrameAnalyzer.xsgn"}
+ALLOWED = {"DarkFrameAnalyzer.js", "DarkFrameAnalyzer.svg",
+           "DarkFrameAnalyzer.xsgn"}
 
 names = sorted(os.listdir(stage))
 unexpected = [n for n in names if n not in ALLOWED]
@@ -246,11 +261,17 @@ if unexpected:
     sys.exit("ERROR: unexpected entries in the stage directory: "
              + ", ".join(unexpected))
 
+entries = [(install_path + "/" + n, n) for n in names]
+if "DarkFrameAnalyzer.svg" in names:
+    entries.append((icons_path + "/DarkFrameAnalyzer.svg",
+                    "DarkFrameAnalyzer.svg"))
+entries.sort()
+
 with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
-    for name in names:
+    for arcname, name in entries:
         with open(os.path.join(stage, name), "rb") as f:
             data = f.read()
-        info = zipfile.ZipInfo(install_path + "/" + name, date_time=FIXED_DATE)
+        info = zipfile.ZipInfo(arcname, date_time=FIXED_DATE)
         info.external_attr = 0o644 << 16
         info.create_system = 3  # fixed (unix): CPython defaults to 0 on Windows
         z.writestr(info, data)

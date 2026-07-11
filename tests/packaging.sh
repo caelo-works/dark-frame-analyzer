@@ -5,9 +5,10 @@
 #
 # Runs locally and in CI (same script):
 #   1. unsigned build twice -> determinism on this environment (same sha1)
-#   2. unsigned zip -> exact entry set, install layout, valid JSON contract
-#   3. signing path exercised with a stubbed PixInsight -> two entries,
-#      .xsgn present, no password in the published artifacts
+#   2. unsigned zip -> exact entry set (script + icon in both install
+#      locations), install layout, valid JSON contract
+#   3. signing path exercised with a stubbed PixInsight -> .xsgn entry
+#      added, no password in the published artifacts
 #   4. failing signed build -> fails AND leaves no stale artifacts behind
 #
 # WARNING: rebuilds dist/ several times and leaves it in the state of the
@@ -36,8 +37,10 @@ echo "sha1: $first / $second"
 test "$first" = "$second"
 
 echo "--- unsigned zip: install layout and exact entry set"
-unzip -l dist/DarkFrameAnalyzer-*.zip | grep -q "src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.js"
-test "$(unzip -Z1 dist/DarkFrameAnalyzer-*.zip | wc -l)" -eq 1
+unzip -Z1 dist/DarkFrameAnalyzer-*.zip | grep -q "^src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.js$"
+unzip -Z1 dist/DarkFrameAnalyzer-*.zip | grep -q "^src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.svg$"
+unzip -Z1 dist/DarkFrameAnalyzer-*.zip | grep -q "^rsc/icons/script/DarkFrameAnalyzer/DarkFrameAnalyzer.svg$"
+test "$(unzip -Z1 dist/DarkFrameAnalyzer-*.zip | wc -l)" -eq 3
 python3 -m json.tool dist/update-package.json > /dev/null
 
 echo "--- signing path with a stubbed PixInsight"
@@ -54,7 +57,7 @@ touch "$stub/fake.xssk"
 rm -rf dist
 XSSK_PATH="$stub/fake.xssk" XSSK_PASS=stub-password PIXINSIGHT_BIN="$stub/fake-pi" \
    build > /dev/null
-test "$(unzip -Z1 dist/DarkFrameAnalyzer-*.zip | wc -l)" -eq 2
+test "$(unzip -Z1 dist/DarkFrameAnalyzer-*.zip | wc -l)" -eq 4
 unzip -Z1 dist/DarkFrameAnalyzer-*.zip | grep -q '\.xsgn$'
 if grep -r "stub-password" dist; then
    echo "ERROR: password leaked into the published artifacts" >&2
