@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Dark Frame Analyzer">
+  <!-- Dark Frame Analyzer: the tile IS the dark frame (black background, hot
+       pixels), crossed by the verdict. One dominant shape, the check mark:
+       the only thing that survives at 16 px. The dark halo under the check
+       detaches it from the hot pixels. Green is unique in the family: it
+       identifies the script at a glance. (A frame drawn INSIDE the tile was
+       tried: unreadable at 16 px.) -->
+  <defs>
+    <linearGradient id="dfaTile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#111c33"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="dfaCheck" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#6ee7b7"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#dfaTile)"/>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="13.25" fill="none" stroke="#334155" stroke-width="1.5"/>
+
+  <!-- hot pixels: the defect we hunt (amber), and background noise (gray) -->
+  <g fill="#fbbf24">
+    <circle cx="14.5" cy="15" r="2.4"/>
+    <circle cx="51" cy="50.5" r="2.1"/>
+  </g>
+  <g fill="#94a3b8">
+    <circle cx="52" cy="13.5" r="1.7"/>
+    <circle cx="13.5" cy="49" r="1.6"/>
+    <circle cx="31" cy="55" r="1.4"/>
+  </g>
+
+  <!-- the verdict: dark halo, then the check mark -->
+  <path d="M16 34 L27 45 L49 19" fill="none" stroke="#020617" stroke-width="13"
+        stroke-linecap="round" stroke-linejoin="round" opacity="0.92"/>
+  <path d="M16 34 L27 45 L49 19" fill="none" stroke="url(#dfaCheck)" stroke-width="7"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

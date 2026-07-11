@@ -4,3 +4,7 @@
 # Le script PixInsight aussi : l'asset brut des releases et la copie
 # embarquée dans le zip de distribution doivent être identiques
 *.js text eol=lf
+
+# L'icône embarquée dans le zip de distribution est normalisée en LF au
+# staging : autant que le fichier versionné soit déjà identique
+*.svg text eol=lf

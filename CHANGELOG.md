@@ -7,6 +7,10 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Script icon (`DarkFrameAnalyzer.svg`): shown by PixInsight in menus and
+  Feature Scripts (`#feature-icon`), and shipped in the update package.
+- Dialog header: icon, script title and a clickable "by CaeloWorks" link
+  to the script catalogue.
 - GPL-3.0 license (LICENSE file and copyright headers).
 - Distribution packaging for the CaeloWorks update repository
   (`scripts/build-update-package.sh`: reproducible install zip +

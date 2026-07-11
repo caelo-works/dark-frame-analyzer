@@ -17,6 +17,7 @@
 #feature-info  Astrophotography dark series analysis for outlier detection \
                before WBPP integration. Computes median, MAD, hot pixels and \
                spatial uniformity, and flags out-of-spec frames.
+#feature-icon  @script_icons_dir/DarkFrameAnalyzer.svg
 
 #include <pjsr/Sizer.jsh>
 #include <pjsr/NumericControl.jsh>
@@ -26,8 +27,9 @@
 #include <pjsr/TextAlign.jsh>
 #include <pjsr/DataType.jsh>
 #include <pjsr/UndoFlag.jsh>
+#include <pjsr/StdCursor.jsh>
 
-#define VERSION "1.8.0"
+#define VERSION "1.9.0"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
@@ -1419,6 +1421,20 @@ function writeTextFileCompat(path, text)
    f.close();
 }
 
+function openInBrowser(url)
+{
+   var platform = String(CoreApplication.platform);
+   var p = new ExternalProcess;
+   if (/win|mswindows/i.test(platform))
+      p.start("cmd", ["/c", "start", "", url]);
+   else if (/mac|osx/i.test(platform))
+      p.start("/usr/bin/open", [url]);
+   else
+      p.start("xdg-open", [url]);
+   if (p.waitForStarted)
+      p.waitForStarted();
+}
+
 
 // ============================================================================
 // WBPP EXCLUSION LIST DIALOG
@@ -1641,10 +1657,42 @@ function DarkAnalyzerDialog()
    this.busy = false;  // analysis in progress (locks the GUI)
 
    // -----------------------------------------------------------------------
-   // Title + top row (help text + language selector)
+   // Header: emblem + title + CaeloWorks link
    // -----------------------------------------------------------------------
-   this.title = TITLE + " v" + VERSION;
+   this.emblem = this.makeEmblem();
 
+   this.titleLabel = new Label(this);
+   this.titleLabel.text = TITLE;
+   var titleFont = this.titleLabel.font;
+   titleFont.bold = true;
+   titleFont.pointSize = Math.round(this.font.pointSize * 1.7);
+   this.titleLabel.font = titleFont;
+
+   this.bylineLabel = new Label(this);
+   this.bylineLabel.useRichText = true;
+   this.bylineLabel.text = "by <span style=\"color:#5a8fd0; text-decoration:underline;\">CaeloWorks</span>";
+   this.bylineLabel.textAlignment = TextAlign_Left | TextAlign_VertCenter;
+   this.bylineLabel.toolTip = "https://pixinsight-scripts.caelo.works/en — v" + VERSION;
+   this.bylineLabel.onMousePress = function()
+   {
+      openInBrowser("https://pixinsight-scripts.caelo.works/en");
+   };
+   try { this.bylineLabel.cursor = new Cursor(StdCursor_PointingHand); } catch (e) {}
+
+   this.titleColumn = new VerticalSizer();
+   this.titleColumn.add(this.titleLabel);
+   this.titleColumn.add(this.bylineLabel);
+
+   this.headerSizer = new HorizontalSizer();
+   this.headerSizer.spacing = 10;
+   if (this.emblem != null)
+      this.headerSizer.add(this.emblem);
+   this.headerSizer.add(this.titleColumn);
+   this.headerSizer.addStretch();
+
+   // -----------------------------------------------------------------------
+   // Top row (help text + language selector)
+   // -----------------------------------------------------------------------
    this.helpLabel = new Label(this);
    this.helpLabel.useRichText = false;
 
@@ -1967,6 +2015,7 @@ function DarkAnalyzerDialog()
    this.sizer = new VerticalSizer();
    this.sizer.margin = 8;
    this.sizer.spacing = 8;
+   this.sizer.add(this.headerSizer);
    this.sizer.add(this.topSizer);
    this.sizer.add(this.filesGroupBox, 100);  // stretch
    this.sizer.add(this.paramsGroupBox);
@@ -1987,6 +2036,43 @@ DarkAnalyzerDialog.prototype = new Dialog();
 // ============================================================================
 // DIALOG METHODS
 // ============================================================================
+
+DarkAnalyzerDialog.prototype.makeEmblem = function()
+{
+   // Script icon painted at the top of the dialog. Looked up next to the
+   // script (repo checkout, update-repository install) and in the installed
+   // icon directory (#feature-icon location); a bare manual install has
+   // neither and the header simply shows no emblem.
+   var here = File.extractDrive(#__FILE__) + File.extractDirectory(#__FILE__);
+   // Four levels up from src/scripts/CaeloWorks/DarkFrameAnalyzer/ is the
+   // PixInsight installation root
+   var candidates = [
+      here + "/DarkFrameAnalyzer.svg",
+      here + "/../../../../rsc/icons/script/DarkFrameAnalyzer/DarkFrameAnalyzer.svg"
+   ];
+   var bmp = null;
+   for (var i = 0; i < candidates.length && bmp == null; ++i) {
+      try {
+         if (File.exists(candidates[i])) {
+            var b = new Bitmap(candidates[i]);
+            bmp = (typeof b.scaledTo == "function") ? b.scaledTo(44, 44) : b;
+         }
+      }
+      catch (e) { bmp = null; }
+   }
+   if (bmp == null)
+      return null;
+   var ctrl = new Control(this);
+   ctrl.setFixedSize(44, 44);
+   ctrl.__bmp = bmp;
+   ctrl.onPaint = function()
+   {
+      var g = new Graphics(this);
+      try { g.drawBitmap(0, 0, this.__bmp); } catch (e) {}
+      g.end();
+   };
+   return ctrl;
+};
 
 DarkAnalyzerDialog.prototype.createNumericControl = function(minVal, maxVal, defaultVal, precision)
 {
