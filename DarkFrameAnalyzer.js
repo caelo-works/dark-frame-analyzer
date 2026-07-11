@@ -13,7 +13,7 @@
 // option) any later version. See <https://www.gnu.org/licenses/gpl-3.0>.
 // ============================================================================
 
-#feature-id    Utilities > DarkFrameAnalyzer
+#feature-id    CaeloWorks > DarkFrameAnalyzer
 #feature-info  Astrophotography dark series analysis for outlier detection \
                before WBPP integration. Computes median, MAD, hot pixels and \
                spatial uniformity, and flags out-of-spec frames.
