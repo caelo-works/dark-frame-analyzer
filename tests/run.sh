@@ -41,11 +41,13 @@ fi
    echo 'global.Dialog = function () {};'
 
    # Strip the preprocessor directives (including multi-line continuations),
-   # substitute the #define tokens, drop the main() invocation
+   # substitute the #define tokens and the mid-line #__FILE__ macro (the
+   # emblem lookup path — irrelevant under node), drop the main() invocation
    awk '{ sub(/\r$/,"") } cont { cont = /\\$/; next } /^#/ { cont = /\\$/; next } { print }' "$JS" \
       | sed -e "s/\\bVERSION\\b/\"$VERSION\"/g" \
             -e "s/\\bTITLE\\b/\"$TITLE\"/g" \
             -e "s/\\bSCALE\\b/65535/g" \
+            -e 's/#__FILE__/""/g' \
             -e '/^main();$/d'
 
    # Expose the internals under test
@@ -69,8 +71,9 @@ EOF
 # non-GNU sed (\b word boundaries silently no-op on BSD/macOS) as well
 # as a drift in the #define format — either would otherwise surface as
 # opaque ReferenceErrors, or worse, pass unnoticed.
-if grep -q -w -e VERSION -e TITLE -e SCALE "$MODULE"; then
-   echo "ERROR: #define token substitution failed (GNU sed required)" >&2
+if grep -q -w -e VERSION -e TITLE -e SCALE "$MODULE" \
+      || grep -q -F '#__FILE__' "$MODULE"; then
+   echo "ERROR: preprocessor token substitution failed (GNU sed required)" >&2
    exit 1
 fi
 

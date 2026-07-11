@@ -7,6 +7,12 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Script icon (`DarkFrameAnalyzer.svg`): shown by PixInsight in menus and
+  Feature Scripts (`#feature-icon`), and shipped in the update package.
+- Dialog header: icon, script title and a clickable "by CaeloWorks" link
+  to the script catalogue.
+- Script identifier in `#feature-id` — required by PixInsight to resolve
+  the menu icon and to code-sign the script.
 - GPL-3.0 license (LICENSE file and copyright headers).
 - Distribution packaging for the CaeloWorks update repository
   (`scripts/build-update-package.sh`: reproducible install zip +
@@ -21,6 +27,10 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - README rewritten in English on the CaeloWorks template.
+- The script now lives in the "CaeloWorks" menu category (was Utilities).
+- The code-signing driver uses the actual PixInsight Security API
+  (`loadSigningKeysFile` + 6-argument `generateScriptSignatureFile`),
+  verified against PixInsight 1.9.4 with a local development key.
 
 ### Removed
 - The Python reference implementation (`analyze_darks_series.py`). It had
