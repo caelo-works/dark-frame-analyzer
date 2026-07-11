@@ -4,7 +4,7 @@
 
 ### Analyze your dark frame series and reject out-of-spec frames before WBPP integration
 
-[![Version](https://img.shields.io/badge/version-1.8.0-22d3ee?style=for-the-badge&labelColor=0f172a)](https://github.com/caelo-works/dark-frame-analyzer/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.9.0-22d3ee?style=for-the-badge&labelColor=0f172a)](https://github.com/caelo-works/dark-frame-analyzer/releases/latest)
 [![PixInsight](https://img.shields.io/badge/PixInsight-%E2%89%A5%201.9.0-67e8f9?style=for-the-badge&labelColor=0f172a)](https://pixinsight.com/)
 [![Status](https://img.shields.io/badge/status-stable-34d399?style=for-the-badge&labelColor=0f172a)](https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer)
 [![License](https://img.shields.io/badge/license-GPL--3.0-94a3b8?style=for-the-badge&labelColor=0f172a)](LICENSE)

@@ -6,6 +6,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.9.0] — 2026-07-11
+
 ### Added
 - Script icon (`DarkFrameAnalyzer.svg`): shown by PixInsight in menus and
   Feature Scripts (`#feature-icon`), and shipped in the update package.
@@ -123,5 +125,6 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   anti-quantization safeguards, color-coded results table and detailed
   console report. Includes the Python reference implementation.
 
-[Unreleased]: https://github.com/caelo-works/dark-frame-analyzer/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/caelo-works/dark-frame-analyzer/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.9.0
 [1.8.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.8.0
