@@ -106,11 +106,13 @@ RELEASE_DATE=YYYYMMDD scripts/build-update-package.sh <version>
 This produces two files under `dist/`:
 
 - **`DarkFrameAnalyzer-<version>.zip`** — the install tree extracted as-is
-  by the PixInsight updater
-  (`src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.js`, nothing
-  else). The archive is reproducible on a given build environment (fixed
+  by the PixInsight updater: the script under
+  `src/scripts/CaeloWorks/DarkFrameAnalyzer/` plus its icon, shipped both
+  next to the script (dialog header emblem) and under
+  `rsc/icons/script/DarkFrameAnalyzer/` (the `#feature-icon` location for
+  menus). The archive is reproducible on a given build environment (fixed
   entry order, mtimes, permissions, line endings and creator system):
-  rebuilt there, its sha1 only changes when the script content changes.
+  rebuilt there, its sha1 only changes when the content changes.
 - **`update-package.json`** — the metadata contract for the site: name,
   slug, version, `fileName`, `sha1`, type, `releaseDate`,
   `piVersionRange`, title and `descriptionHtml`.

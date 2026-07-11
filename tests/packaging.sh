@@ -36,11 +36,20 @@ second=$(sha1sum dist/DarkFrameAnalyzer-*.zip | cut -d' ' -f1)
 echo "sha1: $first / $second"
 test "$first" = "$second"
 
+BASE_ENTRIES="src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.js
+src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.svg
+rsc/icons/script/DarkFrameAnalyzer/DarkFrameAnalyzer.svg"
+assert_entries() {
+   # Exact-path membership for every expected entry (no regex, no suffix
+   # matching: a misplaced file must fail even if the count is right)
+   while IFS= read -r entry; do
+      unzip -Z1 dist/DarkFrameAnalyzer-*.zip | grep -qxF "$entry"
+   done <<< "$1"
+   test "$(unzip -Z1 dist/DarkFrameAnalyzer-*.zip | wc -l)" -eq "$2"
+}
+
 echo "--- unsigned zip: install layout and exact entry set"
-unzip -Z1 dist/DarkFrameAnalyzer-*.zip | grep -q "^src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.js$"
-unzip -Z1 dist/DarkFrameAnalyzer-*.zip | grep -q "^src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.svg$"
-unzip -Z1 dist/DarkFrameAnalyzer-*.zip | grep -q "^rsc/icons/script/DarkFrameAnalyzer/DarkFrameAnalyzer.svg$"
-test "$(unzip -Z1 dist/DarkFrameAnalyzer-*.zip | wc -l)" -eq 3
+assert_entries "$BASE_ENTRIES" 3
 python3 -m json.tool dist/update-package.json > /dev/null
 
 echo "--- signing path with a stubbed PixInsight"
@@ -57,8 +66,8 @@ touch "$stub/fake.xssk"
 rm -rf dist
 XSSK_PATH="$stub/fake.xssk" XSSK_PASS=stub-password PIXINSIGHT_BIN="$stub/fake-pi" \
    build > /dev/null
-test "$(unzip -Z1 dist/DarkFrameAnalyzer-*.zip | wc -l)" -eq 4
-unzip -Z1 dist/DarkFrameAnalyzer-*.zip | grep -q '\.xsgn$'
+assert_entries "$BASE_ENTRIES
+src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.xsgn" 4
 if grep -r "stub-password" dist; then
    echo "ERROR: password leaked into the published artifacts" >&2
    exit 1

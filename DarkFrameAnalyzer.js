@@ -2050,12 +2050,16 @@ DarkAnalyzerDialog.prototype.makeEmblem = function()
       here + "/DarkFrameAnalyzer.svg",
       here + "/../../../../rsc/icons/script/DarkFrameAnalyzer/DarkFrameAnalyzer.svg"
    ];
+   // Emblem size in physical pixels, so the icon follows the UI scaling
+   // of high-density displays like every other control
+   var px = (typeof this.logicalPixelsToPhysical == "function") ?
+      this.logicalPixelsToPhysical(44) : 44;
    var bmp = null;
    for (var i = 0; i < candidates.length && bmp == null; ++i) {
       try {
          if (File.exists(candidates[i])) {
             var b = new Bitmap(candidates[i]);
-            bmp = (typeof b.scaledTo == "function") ? b.scaledTo(44, 44) : b;
+            bmp = (typeof b.scaledTo == "function") ? b.scaledTo(px, px) : b;
          }
       }
       catch (e) { bmp = null; }
@@ -2063,7 +2067,7 @@ DarkAnalyzerDialog.prototype.makeEmblem = function()
    if (bmp == null)
       return null;
    var ctrl = new Control(this);
-   ctrl.setFixedSize(44, 44);
+   ctrl.setScaledFixedSize(44, 44);
    ctrl.__bmp = bmp;
    ctrl.onPaint = function()
    {
