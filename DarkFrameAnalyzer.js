@@ -171,7 +171,7 @@ var STRINGS = {
       "rep.colMedian":     "Median",
       "rep.colMeanClip":   "MeanClip",
       "rep.colMad":        "MAD",
-      "rep.colHot":        "Hot>5k",
+      "rep.colHot":        "Hot>%1",
       "rep.colSat":        "Sat.",
       "rep.colState":      "Status",
       "rep.error":         " ERROR: %1",
@@ -184,7 +184,7 @@ var STRINGS = {
       "rep.statRange":     "Range",
       "rep.statClipMed":   "Clipped median (ADU)",
       "rep.statMad":       "Robust MAD (ADU)",
-      "rep.statHot":       "Hot pixels > 5000",
+      "rep.statHot":       "Hot pixels > %1",
       "rep.statSat":       "Saturated pixels",
       "rep.statDelta":     "Corner Δ (ADU)",
       "rep.statTemp":      "CCD temperature (C)",
@@ -336,7 +336,7 @@ var STRINGS = {
       "rep.colMedian":     "Mediane",
       "rep.colMeanClip":   "MeanClip",
       "rep.colMad":        "MAD",
-      "rep.colHot":        "Hot>5k",
+      "rep.colHot":        "Hot>%1",
       "rep.colSat":        "Sat.",
       "rep.colState":      "Etat",
       "rep.error":         " ERREUR : %1",
@@ -349,7 +349,7 @@ var STRINGS = {
       "rep.statRange":     "Etendue",
       "rep.statClipMed":   "Médiane clippée (ADU)",
       "rep.statMad":       "MAD robuste (ADU)",
-      "rep.statHot":       "Hot pixels > 5000",
+      "rep.statHot":       "Hot pixels > %1",
       "rep.statSat":       "Pixels saturés",
       "rep.statDelta":     "Δ coins (ADU)",
       "rep.statTemp":      "Température CCD (C)",
@@ -1109,7 +1109,7 @@ function generateConsoleReport(allMetrics, refs, params)
       padRight(tr("rep.colMedian"), 9) +
       padRight(tr("rep.colMeanClip"), 10) +
       padRight(tr("rep.colMad"), 7) +
-      padRight(tr("rep.colHot"), 8) +
+      padRight(tr("rep.colHot", Math.round(params.hotPixelThresholdADU)), 10) +
       padRight(tr("rep.colSat"), 6) +
       padRight(tr("rep.colState"), 10)
    );
@@ -1143,7 +1143,7 @@ function generateConsoleReport(allMetrics, refs, params)
          padRight(m.median.toFixed(1), 9) +
          padRight(m.meanClip.toFixed(2), 10) +
          padRight(m.mad.toFixed(1), 7) +
-         padRight(String(m.nHot5k), 8) +
+         padRight(String(m.nHot5k), 10) +
          padRight(String(m.nSaturated), 6) +
          sevSymbol
       );
@@ -1170,7 +1170,7 @@ function generateConsoleReport(allMetrics, refs, params)
       var statRows = [
          { name: tr("rep.statClipMed"), vals: [] },
          { name: tr("rep.statMad"), vals: [] },
-         { name: tr("rep.statHot"), vals: [] },
+         { name: tr("rep.statHot", Math.round(params.hotPixelThresholdADU)), vals: [] },
          { name: tr("rep.statSat"), vals: [] }
       ];
 
