@@ -143,6 +143,7 @@ var STRINGS = {
       "sum.valid":         "valid",
       "sum.warn":          "warning(s)",
       "sum.crit":          "rejected",
+      "sum.fewFrames":     "statistical detection skipped (&lt; 3 readable darks)",
       "csv.caption":       "Export metrics to CSV",
       "csv.filter":        "CSV files",
       "filter.all":        "All files",
@@ -157,6 +158,7 @@ var STRINGS = {
       "run.elapsed":       "Per-frame analysis completed in %1 s",
       "rep.title":         "DARK SERIES ANALYSIS",
       "rep.files":         "Files       : %1 FITS analyzed (%2 read successfully)",
+      "rep.fewFramesWarn": "WARNING: statistical outlier detection did NOT run - fewer than 3 readable darks in the series. Only absolute, series-independent checks were applied (read error, temperature, saturation, spatial gradient). Series-relative checks (median, noise, hot pixels) were skipped.",
       "rep.params":        "Detected parameters:",
       "rep.gain":          "  Gain        : [%1]",
       "rep.offset":        "  Offset      : [%1]",
@@ -308,6 +310,7 @@ var STRINGS = {
       "sum.valid":         "valide(s)",
       "sum.warn":          "alerte(s)",
       "sum.crit":          "rejet(s)",
+      "sum.fewFrames":     "détection statistique ignorée (&lt; 3 darks lisibles)",
       "csv.caption":       "Exporter les métriques en CSV",
       "csv.filter":        "Fichiers CSV",
       "filter.all":        "Tous les fichiers",
@@ -322,6 +325,7 @@ var STRINGS = {
       "run.elapsed":       "Analyse individuelle terminée en %1 s",
       "rep.title":         "ANALYSE DE SERIE DE DARKS",
       "rep.files":         "Fichiers    : %1 FITS analysés (%2 lus avec succès)",
+      "rep.fewFramesWarn": "ATTENTION : la détection statistique des outliers n'a PAS été exécutée - moins de 3 darks lisibles dans la série. Seuls les contrôles absolus, indépendants de la série, ont été appliqués (erreur de lecture, température, saturation, gradient spatial). Les contrôles relatifs à la série (médiane, bruit, pixels chauds) ont été ignorés.",
       "rep.params":        "Paramètres détectés :",
       "rep.gain":          "  Gain        : [%1]",
       "rep.offset":        "  Offset      : [%1]",
@@ -900,10 +904,46 @@ function detectOutliers(allMetrics, params)
    }
 
    if (valid.length < 3) {
-      // Not enough data for a statistical detection
+      // Not enough frames for a statistical (series-relative) detection: the
+      // series references (median/MAD/hot-pixel/uniformity) require at least
+      // 3 readable darks. Those relative checks are skipped, but the absolute,
+      // series-INDEPENDENT checks still run so a broken frame is never silently
+      // reported as valid. Same params/logic as the absolute checks in the main
+      // flagging loop below (read error, temperature setpoint, saturation,
+      // absolute spatial gradient); relative checks are intentionally omitted.
       for (var i = 0; i < allMetrics.length; ++i) {
-         allMetrics[i].flags = [];
-         allMetrics[i].severity = (allMetrics[i].error === null) ? "ok" : "critical";
+         var m = allMetrics[i];
+         var flags = [];
+         var severity = "ok";
+
+         if (m.error !== null) {
+            flags.push(tr("flag.readError", m.error));
+            m.flags = flags;
+            m.severity = "critical";
+            continue;
+         }
+
+         // --- Absolute spatial uniformity check (amp glow, gradients) ---
+         if (m.maxCornerDelta !== null &&
+             Math.abs(m.maxCornerDelta) > params.uniformityDeltaMax) {
+            flags.push(tr("flag.uniformityAbs", m.maxCornerDelta.toFixed(1)));
+            if (severity !== "critical") severity = "warning";
+         }
+
+         // --- Temperature check (per-frame deviation from setpoint) ---
+         if (m.tempDeviation !== null && m.tempDeviation > params.tempDeviationMax) {
+            flags.push(tr("flag.tempDrift", m.tempDeviation.toFixed(2)));
+            severity = "critical";
+         }
+
+         // --- Massive saturation check ---
+         if (m.nSaturated > params.saturatedPixelsMax) {
+            flags.push(tr("flag.saturation", m.nSaturated));
+            severity = "critical";
+         }
+
+         m.flags = flags;
+         m.severity = severity;
       }
       return { metrics: allMetrics, refs: null };
    }
@@ -1070,6 +1110,14 @@ function generateConsoleReport(allMetrics, refs, params)
    console.writeln(tr("rep.title"));
    console.writeln(sep);
    console.writeln(tr("rep.files", allMetrics.length, valid.length));
+
+   // Statistical detection is skipped below 3 readable darks (refs === null):
+   // make the missing series-relative analysis explicit instead of silently
+   // reporting everything as valid.
+   if (refs === null) {
+      console.writeln("");
+      console.warningln(tr("rep.fewFramesWarn"));
+   }
 
    if (valid.length > 0) {
       // Series consistency
@@ -2445,6 +2493,14 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
       "<b><span style='color: #CC8800;'>" + nWarn + " " + tr("sum.warn") + "</span></b>" +
       " / " +
       "<b><span style='color: #CC0000;'>" + nCrit + " " + tr("sum.crit") + "</span></b>";
+
+   // Below 3 readable darks the statistical detection did not run (refs null):
+   // surface an explicit banner so the counts above are not mistaken for a
+   // full analysis.
+   if (this.refs === null) {
+      this.summaryLabel.text +=
+         "<br/><span style='color: #CC8800;'>" + tr("sum.fewFrames") + "</span>";
+   }
 
    // Sort by severity (criticals on top)
    this.fileTreeBox.sort(COL_STATE, true);

@@ -313,17 +313,22 @@ itself. Two consequences worth telling users:
 - **If every frame in the series is bad in the same way, none of them will be
   flagged.** The script finds outliers, not intrinsically bad darks.
 
-### Fewer than 3 readable frames: nothing is detected at all
+### Fewer than 3 readable frames: only the absolute checks run
 
-**With fewer than 3 readable frames in the list, no detection runs.** Every
-readable frame comes back **Valid**, whatever its content — the absolute thresholds
-(temperature, saturation, median rejection) are not applied either. Only unreadable
-files are marked in Error.
+**With fewer than 3 readable frames in the list, the statistical (series-relative)
+detection does not run** — the median, noise (MAD) and hot-pixel tests all need at
+least three darks to build a reliable series reference. **The absolute,
+series-independent checks still apply**, though: read errors, temperature deviation
+from the setpoint, massive saturation and the absolute spatial-gradient threshold.
+A frame that trips one of those is still marked **Warning** or **Rejected**; a frame
+that trips none comes back **Valid**.
 
-**This is by design** — three frames is the minimum for a robust median and MAD —
-**but nothing in the window warns the user.** If someone reports *"I analyzed two
-darks and it says they are perfect"*, this is the answer: add the rest of the
-series.
+**The user is now warned explicitly.** A banner under the counters says the
+statistical detection was skipped because fewer than 3 readable darks are present,
+and the console report prints the same note. So a truly clean pair of darks can
+legitimately show as Valid, but it is no longer silent — the user knows the full
+statistical pass did not run. Three frames remains the minimum for a robust median
+and MAD; tell the user to add the rest of the series for a complete analysis.
 
 ### Why the script does not cry wolf on quantized data
 
@@ -499,16 +504,21 @@ Nothing here is a mistake by the user. If a user reports one of these, **confirm
 it**; do not send them back to their settings to look for an error they did not
 make.
 
-### Fewer than 3 frames: everything comes back "Valid", with no warning
+### Fewer than 3 frames: only the absolute checks run, with an explicit warning
 
 **Symptom:** *"I analyzed one or two darks and it tells me they are perfect."*
 
-**Cause:** with fewer than 3 readable frames, no detection runs at all — not even
-the absolute thresholds. Every readable frame is reported **Valid**. Three frames
-is the honest minimum for a robust median and MAD, but **the window says nothing**.
+**Cause:** with fewer than 3 readable frames, the statistical (series-relative)
+detection does not run — three frames is the honest minimum for a robust median and
+MAD. The absolute checks (read error, temperature, saturation, spatial gradient)
+**do** run, so a frame with a hard defect is still flagged; a genuinely clean frame
+comes back **Valid**. Either way the window now shows a banner — and the console a
+note — stating the statistical detection was skipped for fewer than 3 readable
+darks, so the result is no longer silent.
 
-**Answer:** have them add the whole series. This is a real gap in the interface;
-report it if a user is annoyed by it.
+**Answer:** have them add the whole series so the full statistical pass runs. Point
+them to the banner: it explains why only a partial (absolute-only) analysis was
+performed.
 
 ### `.fts` dark frames cannot be added
 
@@ -568,7 +578,8 @@ theirs, tell them to analyze the raw ones.
 
 **"All my darks came back Valid, even the obviously bad one."**
 Three possibilities, in order of likelihood. (1) There are **fewer than 3 frames**
-in the list — below that, no detection runs and everything is reported Valid. (2)
+in the list — below that the statistical detection does not run (only the absolute
+checks do), and a banner says so; a frame with no hard defect is reported Valid. (2)
 The whole series is bad in the same way: the script finds *outliers*, and a frame
 is only an outlier compared to its peers. (3) The series is very uniform and the
 anti-quantization safeguard is holding the statistical test back on purpose.
