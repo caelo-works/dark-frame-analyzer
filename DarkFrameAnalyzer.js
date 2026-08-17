@@ -128,6 +128,8 @@ var STRINGS = {
       "btn.exportCsv.tt":  "Export the metrics of the last analysis to a CSV file",
       "btn.exclusions":    "WBPP exclusions...",
       "btn.exclusions.tt": "List of darks to keep out of integration: .txt export or move to a rejected/ subdirectory",
+      "btn.cancelRun":     "Cancel",
+      "btn.cancelRun.tt":  "Stop the running analysis; frames already measured are kept",
       "btn.close":         "Close",
       "btn.defaults":      "Defaults",
       "btn.defaults.tt":   "Restore all detection thresholds to their default values",
@@ -154,6 +156,7 @@ var STRINGS = {
       // Analysis run + console report
       "run.start":         "Starting analysis of %1 darks...",
       "run.progress":      "Analyzing [%1/%2] ",
+      "run.aborted":       "Analysis cancelled: %1 of %2 darks processed (kept).",
       "run.elapsed":       "Per-frame analysis completed in %1 s",
       "rep.title":         "DARK SERIES ANALYSIS",
       "rep.files":         "Files       : %1 FITS analyzed (%2 read successfully)",
@@ -293,6 +296,8 @@ var STRINGS = {
       "btn.exportCsv.tt":  "Exporter les métriques de la dernière analyse dans un fichier CSV",
       "btn.exclusions":    "Exclusions WBPP...",
       "btn.exclusions.tt": "Liste des darks à écarter de l'empilement : export .txt ou déplacement vers un sous-répertoire rejected/",
+      "btn.cancelRun":     "Annuler",
+      "btn.cancelRun.tt":  "Interrompre l'analyse en cours ; les trames déjà mesurées sont conservées",
       "btn.close":         "Fermer",
       "btn.defaults":      "Défauts",
       "btn.defaults.tt":   "Restaurer tous les seuils de détection à leurs valeurs par défaut",
@@ -319,6 +324,7 @@ var STRINGS = {
       // Analyse + rapport console
       "run.start":         "Début de l'analyse de %1 darks...",
       "run.progress":      "Analyse [%1/%2] ",
+      "run.aborted":       "Analyse annulée : %1 sur %2 darks traités (conservés).",
       "run.elapsed":       "Analyse individuelle terminée en %1 s",
       "rep.title":         "ANALYSE DE SERIE DE DARKS",
       "rep.files":         "Fichiers    : %1 FITS analysés (%2 lus avec succès)",
@@ -1996,6 +2002,14 @@ function DarkAnalyzerDialog()
    this.exclusionsButton.enabled = false;  // enabled after an analysis
    this.exclusionsButton.onClick = function() { self.showExclusions(); };
 
+   // Abort button: active only while an analysis is running. It sets a flag
+   // that the analysis loop reads at the top of each iteration to break
+   // cleanly, keeping the frames already measured.
+   this.cancelRunButton = new PushButton(this);
+   this.cancelRunButton.icon = this.scaledResource(":/icons/cancel.png");
+   this.cancelRunButton.enabled = false;  // only enabled while busy
+   this.cancelRunButton.onClick = function() { self.abortRequested = true; };
+
    this.closeButton = new PushButton(this);
    this.closeButton.icon = this.scaledResource(":/icons/close.png");
    this.closeButton.onClick = function() { self.cancel(); };
@@ -2004,6 +2018,7 @@ function DarkAnalyzerDialog()
    this.actionButtonsSizer.spacing = 8;
    this.actionButtonsSizer.addStretch();
    this.actionButtonsSizer.add(this.analyzeButton);
+   this.actionButtonsSizer.add(this.cancelRunButton);
    this.actionButtonsSizer.add(this.exportCsvButton);
    this.actionButtonsSizer.add(this.exclusionsButton);
    this.actionButtonsSizer.add(this.closeButton);
@@ -2147,6 +2162,8 @@ DarkAnalyzerDialog.prototype.applyLanguage = function()
    this.exportCsvButton.toolTip = tr("btn.exportCsv.tt");
    this.exclusionsButton.text = tr("btn.exclusions");
    this.exclusionsButton.toolTip = tr("btn.exclusions.tt");
+   this.cancelRunButton.text = tr("btn.cancelRun");
+   this.cancelRunButton.toolTip = tr("btn.cancelRun.tt");
    this.closeButton.text = tr("btn.close");
    this.defaultsButton.text = tr("btn.defaults");
    this.defaultsButton.toolTip = tr("btn.defaults.tt");
@@ -2270,6 +2287,8 @@ DarkAnalyzerDialog.prototype.setBusy = function(busy)
    this.analyzeButton.enabled = enabled;
    this.exportCsvButton.enabled = enabled && this.allMetrics.length > 0;
    this.exclusionsButton.enabled = enabled && this.allMetrics.length > 0;
+   // Inverse of the others: only cancellable while a run is in progress
+   this.cancelRunButton.enabled = busy;
    this.closeButton.enabled = enabled;
    this.addFilesButton.enabled = enabled;
    this.addDirButton.enabled = enabled;
@@ -2386,7 +2405,8 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
    this.readParamsFromGUI();
    saveParamsToSettings(this.params);
 
-   // Reset the results
+   // Reset the results and the run-abort flag (set by the Cancel button)
+   this.abortRequested = false;
    this.allMetrics = [];
    this.refs = null;
 
@@ -2408,6 +2428,10 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
 
    // Phase 1: per-frame analysis (progressive TreeBox update)
    for (var i = 0; i < this.filePaths.length; ++i) {
+      // Honor a Cancel click: break cleanly, keeping the frames already
+      // measured (the flag is flipped by processEvents() below)
+      if (this.abortRequested)
+         break;
       console.write("<end>\r" + tr("run.progress", i + 1, this.filePaths.length) +
          File.extractName(this.filePaths[i]) + File.extractExtension(this.filePaths[i]));
       console.flush();
@@ -2421,6 +2445,8 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
    }
 
    console.writeln("");  // new line after the progress indicator
+   if (this.abortRequested)
+      console.warningln(tr("run.aborted", this.allMetrics.length, this.filePaths.length));
    var elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
    console.writeln(tr("run.elapsed", elapsed));
 
