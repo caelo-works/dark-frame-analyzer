@@ -1760,8 +1760,8 @@ function DarkAnalyzerDialog()
       ofd.multipleSelections = true;
       ofd.caption = tr("dlg.selectFiles");
       ofd.filters = [
-         [tr("dlg.darkFilter"), "*.fits", "*.fit", "*.xisf"],
-         [tr("dlg.fitsFilter"), "*.fits", "*.fit"],
+         [tr("dlg.darkFilter"), "*.fits", "*.fit", "*.fts", "*.xisf"],
+         [tr("dlg.fitsFilter"), "*.fits", "*.fit", "*.fts"],
          [tr("dlg.xisfFilter"), "*.xisf"]
       ];
       if (ofd.execute()) {
@@ -1778,7 +1778,7 @@ function DarkAnalyzerDialog()
       if (gdd.execute()) {
          var dir = gdd.directory;
          var search = new FileFind();
-         var extensions = [".fits", ".fit", ".xisf", ".FITS", ".FIT", ".XISF"];
+         var extensions = [".fits", ".fit", ".fts", ".xisf", ".FITS", ".FIT", ".FTS", ".XISF"];
          for (var e = 0; e < extensions.length; ++e) {
             if (search.begin(dir + "/*" + extensions[e])) {
                do {
