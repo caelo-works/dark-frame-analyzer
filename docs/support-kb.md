@@ -3,10 +3,9 @@
 **This is written for a support agent, not for a user.** Quote it, do not
 paraphrase it: the sentences here are checked, a paraphrase is not.
 
-Applies to **1.9.0**. **The version is not printed in the window title.** To check
-what a user is running: have them hover the mouse over the **by CaeloWorks** link
-under the title in the script's window — the tooltip ends with the version
-(`— v1.9.0`).
+Applies to **1.9.0**. To check what a user is running: have them read the version
+shown in plain text in the window header, next to the **by CaeloWorks** link under
+the title — it reads *by CaeloWorks · v1.9.0*.
 
 **The interface is bilingual — English and French — and the user will describe
 *their* window.** A French user says *« Rejet »*, not "Rejected"; *« Seuils de
@@ -644,8 +643,8 @@ submenu — and **PixInsight must be restarted** after the install.
 actionable:
 
 1. **PixInsight version** and **operating system** (Help → About).
-2. **Dark Frame Analyzer version** — hover the **by CaeloWorks** link under the
-   title; the tooltip ends with the version.
+2. **Dark Frame Analyzer version** — read it in plain text in the window header,
+   next to the **by CaeloWorks** link under the title (*by CaeloWorks · v1.9.0*).
 3. **The Process Console output of the run.** It carries the detected acquisition
    parameters, the per-frame table, the series references and every alert with its
    numbers. It is almost always enough on its own.
