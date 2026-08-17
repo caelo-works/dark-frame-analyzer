@@ -152,14 +152,6 @@ the **exact** strings the dialog shows.
 - **Rejected** = **Rejet**
 - **Error** = **Erreur**
 
-**Careful: in English the yellow status has three names.** The table calls it
-**Alert**, the summary line under the table calls it **warning(s)**, and the CSV
-`status` column calls it **`warning`**. They are the same thing — the middle
-severity, "worth a look, not necessarily fatal". Likewise the red status is
-**Rejected** in the table, **rejected** in the summary and **`critical`** in the
-CSV. In French there is no such confusion: *« Alerte »* / *« alerte(s) »* and
-*« Rejet »* / *« rejet(s) »*.
-
 **Threshold groups and fields**
 
 - **Temperature** = **Température** — **Max deviation (°C):** = **Écart max (°C) :**
@@ -288,15 +280,8 @@ and in full in the Process Console report.
   unusual hot pixel count, or a uniformity problem.
 - **Valid** (*« Valide »*), green — nothing to report.
 
-The summary line under the table reads e.g. *"18 valid / 2 warning(s) / 1
-rejected"* (*« 18 valide(s) / 2 alerte(s) / 1 rejet(s) »*).
-
-**In English the yellow status is called three different things, and they all mean
-the same thing:** **Alert** in the table, **warning(s)** in that summary line, and
-**`warning`** in the CSV `status` column. Same for the red one: **Rejected** in the
-table, **rejected** in the summary, **`critical`** in the CSV. If a user says
-"warning", they mean an Alert. In French the wording is consistent throughout
-(*« Alerte »*, *« Rejet »*).
+The summary line under the table reads e.g. *"18 valid / 2 Alert(s) / 1
+Rejected"* (*« 18 valide(s) / 2 alerte(s) / 1 rejet(s) »*).
 
 ### Detection is relative to the series, not absolute
 
@@ -345,9 +330,7 @@ the series is very uniform, this safeguard is usually why. It is intentional.
   listing every reason the frame was flagged**. That tooltip is the answer to
   almost every "why was this frame rejected" question.
 - The Status column shows **Valid** / **Alert** / **Rejected** / **Error**
-  (*« Valide » / « Alerte » / « Rejet » / « Erreur »*). In English, beware: the
-  summary line below the table calls an **Alert** a **warning**, and the CSV calls
-  it **`warning`** too. Same status, three spellings.
+  (*« Valide » / « Alerte » / « Rejet » / « Erreur »*).
 - After an analysis the table is sorted by status, so flagged frames group at the
   top and valid frames at the bottom.
 - **N/A** in a column means the measurement could not be made: no `CCD-TEMP` header
