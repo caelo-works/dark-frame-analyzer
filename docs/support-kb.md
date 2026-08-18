@@ -187,8 +187,10 @@ The **Darks** group (*« Darks »*) holds the frames to analyze.
 frame read-only and closes it immediately.
 
 **During an analysis the whole window is locked** — the file list, the thresholds
-and the buttons are all disabled until the run ends. **There is no Cancel button:**
-a run cannot be interrupted from the script. See the known-limits section.
+and the other buttons are all disabled until the run ends. **A Cancel button**
+(*« Annuler »*) stays active during the run: clicking it stops the analysis
+cleanly. The frames already measured are kept, and the console reports how many
+frames were processed out of the total.
 
 ---
 
@@ -491,15 +493,16 @@ is the honest minimum for a robust median and MAD, but **the window says nothing
 **Answer:** have them add the whole series. This is a real gap in the interface;
 report it if a user is annoyed by it.
 
-### An analysis cannot be cancelled
+### Cancelling an analysis in progress
 
 **Symptom:** *"I loaded 300 darks by mistake and now I'm stuck."*
 
-**Cause:** the window locks during a run and there is no Cancel button. The run must
-finish. The console shows the progress (*"Analyzing [12/300] …"* / *« Analyse
-[12/300] … »*).
-
-**Workaround:** none inside the script. Confirm the limit and apologise.
+**Answer:** click the **Cancel** button (*« Annuler »*), which stays active while
+the analysis runs. The run stops cleanly at the next frame; the frames already
+measured are kept and the console reports how many were processed out of the total
+(*"Analysis cancelled: 12 of 300 darks processed (kept)."* / *« Analyse annulée :
+12 sur 300 darks traités (conservés). »*). The console also shows live progress
+during the run (*"Analyzing [12/300] …"* / *« Analyse [12/300] … »*).
 
 ### The console hot-pixel label and the CSV `hot_5k` column show different thresholds
 
