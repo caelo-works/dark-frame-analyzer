@@ -518,18 +518,21 @@ finish. The console shows the progress (*"Analyzing [12/300] …"* / *« Analyse
 
 **Workaround:** none inside the script. Confirm the limit and apologise.
 
-### The console labels hot pixels "Hot>5k" even when the threshold is different
+### The console hot-pixel label and the CSV `hot_5k` column show different thresholds
 
-**Symptom:** *"I set the hot pixel threshold to 3000 but the report still says
-Hot>5k — is my setting being ignored?"*
+**Symptom:** *"The console report says Hot>3000 but the exported CSV column is still
+called hot_5k — which one is right?"*
 
-**Cause:** the count is correct and does follow the threshold. Only the **label** is
-hard-coded: the console table header reads `Hot>5k` and the statistics row reads
-`Hot pixels > 5000` regardless of the setting. The CSV column is likewise always
-named `hot_5k`.
+**Cause:** both are right. The console labels now follow the setting: with a
+threshold of 3000 the table header reads `Hot>3000` and the statistics row reads
+`Hot pixels > 3000`. The count always followed the threshold; the label does too
+now. The CSV column, on the other hand, is deliberately kept named `hot_5k`
+regardless of the threshold — it is a **stable machine identifier** for downstream
+tooling, so renaming it would break existing pipelines.
 
-**Answer:** reassure them — the setting *is* applied, only the column title is
-wrong. Cosmetic, and ours to fix.
+**Answer:** reassure them — the console value and the CSV value are the same number,
+computed at their configured threshold. The CSV header name is fixed on purpose so
+scripts that read the export keep working.
 
 ### Clicking a numeric column header sorts it as text
 
