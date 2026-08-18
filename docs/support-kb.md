@@ -529,15 +529,19 @@ tooling, so renaming it would break existing pipelines.
 computed at their configured threshold. The CSV header name is fixed on purpose so
 scripts that read the export keep working.
 
-### Clicking a numeric column header sorts it as text
+### Sorting the temperature or corner-Δ column can be out of order
 
-**Symptom:** *"Sorting by hot pixels puts 9 after 100."*
+**Symptom:** *"Sorting by temperature puts -10 before -20."*
 
-**Cause:** the table sorts column contents as text, so numbers of different lengths
-come out in the wrong order. The **#** and **Status** columns are unaffected.
+**Cause:** PixInsight sorts a table column by its text. The **#**, **Median**,
+**Noise**, **Hot px** and **Sat.** columns are padded so that their text order
+matches their numeric order, and they sort correctly. The two columns that can
+hold **negative** values — **Temp.** and **Δ corn.** (*« Δ coins »*) — cannot be
+fixed this way, because no readable form of a signed decimal sorts as text; they
+may come out in the wrong order when sorted.
 
-**Workaround:** use the **Export CSV...** output for reliable numeric sorting, or
-read the ordered statistics in the console report.
+**Workaround:** for a reliable numeric order on temperature or corner Δ, use the
+**Export CSV...** output or read the ordered statistics in the console report.
 
 ### Colour (debayered) frames: only the first channel is analyzed
 

@@ -2399,11 +2399,17 @@ DarkAnalyzerDialog.prototype.updateRowMetrics = function(m)
       return;
    }
 
+   // The TreeBox sorts columns as text, so numeric values are left-padded to a
+   // fixed width: this makes the lexicographic order match the numeric order
+   // (e.g. "  9" sorts before "100"). Only non-negative columns can be fixed
+   // this way — the signed columns (temperature, corner Δ) cannot, because no
+   // readable text form of a signed decimal sorts lexicographically, so they
+   // are left unpadded and keep the text-sort limitation.
    node.setText(2, m.ccdTemp !== null ? m.ccdTemp.toFixed(2) : "N/A");
-   node.setText(3, m.median.toFixed(1));
-   node.setText(4, m.mad.toFixed(1));
-   node.setText(5, String(m.nHot5k));
-   node.setText(6, String(m.nSaturated));
+   node.setText(3, padLeft(m.median.toFixed(1), 8));
+   node.setText(4, padLeft(m.mad.toFixed(1), 8));
+   node.setText(5, padLeft(String(m.nHot5k), 7));
+   node.setText(6, padLeft(String(m.nSaturated), 7));
    node.setText(COL_DELTA, m.maxCornerDelta !== null ? m.maxCornerDelta.toFixed(1) : "N/A");
    node.setText(COL_STATE, "...");
 };
