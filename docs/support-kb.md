@@ -3,9 +3,9 @@
 **This is written for a support agent, not for a user.** Quote it, do not
 paraphrase it: the sentences here are checked, a paraphrase is not.
 
-Applies to **1.9.0**. To check what a user is running: have them read the version
+Applies to **1.10.0**. To check what a user is running: have them read the version
 shown in plain text in the window header, next to the **by CaeloWorks** link under
-the title — it reads *by CaeloWorks · v1.9.0*.
+the title — it reads *by CaeloWorks · v1.10.0*.
 
 **The interface is bilingual — English and French — and the user will describe
 *their* window.** A French user says *« Rejet »*, not "Rejected"; *« Seuils de
@@ -32,7 +32,7 @@ darks into their master dark in WBPP.
 
 | | |
 |---|---|
-| Version | 1.9.0 |
+| Version | 1.10.0 |
 | Licence | GPL-3.0 — free and open source |
 | Requires | **PixInsight 1.9.0 or newer** — Windows, macOS, Linux |
 | Where it appears | **Script → CaeloWorks → DarkFrameAnalyzer** |
@@ -60,7 +60,7 @@ three-word menu entry sometimes report they cannot find it.
 **There is no process icon and no headless mode.** Dark Frame Analyzer is a dialog
 only: it has no *New Instance* triangle, and its settings cannot be saved as a
 process icon or replayed from a script. Users coming from other CaeloWorks scripts
-ask for this. It does not exist in 1.9.0; do not promise it.
+ask for this. It does not exist in 1.10.0; do not promise it.
 
 ---
 
@@ -634,7 +634,7 @@ actionable:
 
 1. **PixInsight version** and **operating system** (Help → About).
 2. **Dark Frame Analyzer version** — read it in plain text in the window header,
-   next to the **by CaeloWorks** link under the title (*by CaeloWorks · v1.9.0*).
+   next to the **by CaeloWorks** link under the title (*by CaeloWorks · v1.10.0*).
 3. **The Process Console output of the run.** It carries the detected acquisition
    parameters, the per-frame table, the series references and every alert with its
    numbers. It is almost always enough on its own.
