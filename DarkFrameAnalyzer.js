@@ -58,6 +58,9 @@ var COL_DELTA = 7;   // corner-vs-center gradient (ADU)
 var COL_STATE = 8;   // severity / status
 var COL_PATH  = 9;   // hidden: full file path (unique row identifier)
 var NUM_COLS  = 10;
+var COL_SPACER = 10; // trailing empty column used as flexible space: it is the
+                     // stretch target and sits under the vertical scrollbar, so
+                     // the real columns keep their widths and none is masked
 
 
 // ============================================================================
@@ -89,11 +92,11 @@ var STRINGS = {
       "col.unif":          "Δ corn.",
       "col.state":         "Status",
       "files.group":       "Darks",
-      "btn.addFiles":      "+ Darks",
+      "btn.addFiles":      "Darks",
       "btn.addFiles.tt":   "Add FITS files",
-      "btn.addDir":        "+ Directory",
+      "btn.addDir":        "Directory",
       "btn.addDir.tt":     "Add all FITS files from a directory",
-      "btn.remove":        "- Remove",
+      "btn.remove":        "Remove",
       "btn.remove.tt":     "Remove the selected files",
       "btn.clear":         "Clear all",
       "btn.clear.tt":      "Remove all files",
@@ -128,6 +131,8 @@ var STRINGS = {
       "btn.exportCsv.tt":  "Export the metrics of the last analysis to a CSV file",
       "btn.exclusions":    "WBPP exclusions...",
       "btn.exclusions.tt": "List of darks to keep out of integration: .txt export or move to a rejected/ subdirectory",
+      "btn.cancelRun":     "Cancel",
+      "btn.cancelRun.tt":  "Stop the running analysis; frames already measured are kept",
       "btn.close":         "Close",
       "btn.defaults":      "Defaults",
       "btn.defaults.tt":   "Restore all detection thresholds to their default values",
@@ -141,8 +146,8 @@ var STRINGS = {
       "tt.noAnomaly":      "No anomaly",
       "tt.error":          "Error: %1",
       "sum.valid":         "valid",
-      "sum.warn":          "warning(s)",
-      "sum.crit":          "rejected",
+      "sum.warn":          "Alert(s)",
+      "sum.crit":          "Rejected",
       "sum.fewFrames":     "statistical detection skipped (&lt; 3 readable darks)",
       "csv.caption":       "Export metrics to CSV",
       "csv.filter":        "CSV files",
@@ -155,6 +160,7 @@ var STRINGS = {
       // Analysis run + console report
       "run.start":         "Starting analysis of %1 darks...",
       "run.progress":      "Analyzing [%1/%2] ",
+      "run.aborted":       "Analysis cancelled: %1 of %2 darks processed (kept).",
       "run.elapsed":       "Per-frame analysis completed in %1 s",
       "rep.title":         "DARK SERIES ANALYSIS",
       "rep.files":         "Files       : %1 FITS analyzed (%2 read successfully)",
@@ -173,7 +179,7 @@ var STRINGS = {
       "rep.colMedian":     "Median",
       "rep.colMeanClip":   "MeanClip",
       "rep.colMad":        "MAD",
-      "rep.colHot":        "Hot>5k",
+      "rep.colHot":        "Hot>%1",
       "rep.colSat":        "Sat.",
       "rep.colState":      "Status",
       "rep.error":         " ERROR: %1",
@@ -186,7 +192,7 @@ var STRINGS = {
       "rep.statRange":     "Range",
       "rep.statClipMed":   "Clipped median (ADU)",
       "rep.statMad":       "Robust MAD (ADU)",
-      "rep.statHot":       "Hot pixels > 5000",
+      "rep.statHot":       "Hot pixels > %1",
       "rep.statSat":       "Saturated pixels",
       "rep.statDelta":     "Corner Δ (ADU)",
       "rep.statTemp":      "CCD temperature (C)",
@@ -256,11 +262,11 @@ var STRINGS = {
       "col.unif":          "Δ coins",
       "col.state":         "Etat",
       "files.group":       "Darks",
-      "btn.addFiles":      "+ Darks",
+      "btn.addFiles":      "Darks",
       "btn.addFiles.tt":   "Ajouter des fichiers FITS",
-      "btn.addDir":        "+ Répertoire",
+      "btn.addDir":        "Répertoire",
       "btn.addDir.tt":     "Ajouter tous les FITS d'un répertoire",
-      "btn.remove":        "- Supprimer",
+      "btn.remove":        "Supprimer",
       "btn.remove.tt":     "Supprimer les fichiers sélectionnés",
       "btn.clear":         "Tout vider",
       "btn.clear.tt":      "Supprimer tous les fichiers",
@@ -295,6 +301,8 @@ var STRINGS = {
       "btn.exportCsv.tt":  "Exporter les métriques de la dernière analyse dans un fichier CSV",
       "btn.exclusions":    "Exclusions WBPP...",
       "btn.exclusions.tt": "Liste des darks à écarter de l'empilement : export .txt ou déplacement vers un sous-répertoire rejected/",
+      "btn.cancelRun":     "Annuler",
+      "btn.cancelRun.tt":  "Interrompre l'analyse en cours ; les trames déjà mesurées sont conservées",
       "btn.close":         "Fermer",
       "btn.defaults":      "Défauts",
       "btn.defaults.tt":   "Restaurer tous les seuils de détection à leurs valeurs par défaut",
@@ -322,6 +330,7 @@ var STRINGS = {
       // Analyse + rapport console
       "run.start":         "Début de l'analyse de %1 darks...",
       "run.progress":      "Analyse [%1/%2] ",
+      "run.aborted":       "Analyse annulée : %1 sur %2 darks traités (conservés).",
       "run.elapsed":       "Analyse individuelle terminée en %1 s",
       "rep.title":         "ANALYSE DE SERIE DE DARKS",
       "rep.files":         "Fichiers    : %1 FITS analysés (%2 lus avec succès)",
@@ -340,7 +349,7 @@ var STRINGS = {
       "rep.colMedian":     "Mediane",
       "rep.colMeanClip":   "MeanClip",
       "rep.colMad":        "MAD",
-      "rep.colHot":        "Hot>5k",
+      "rep.colHot":        "Hot>%1",
       "rep.colSat":        "Sat.",
       "rep.colState":      "Etat",
       "rep.error":         " ERREUR : %1",
@@ -353,7 +362,7 @@ var STRINGS = {
       "rep.statRange":     "Etendue",
       "rep.statClipMed":   "Médiane clippée (ADU)",
       "rep.statMad":       "MAD robuste (ADU)",
-      "rep.statHot":       "Hot pixels > 5000",
+      "rep.statHot":       "Hot pixels > %1",
       "rep.statSat":       "Pixels saturés",
       "rep.statDelta":     "Δ coins (ADU)",
       "rep.statTemp":      "Température CCD (C)",
@@ -1157,7 +1166,7 @@ function generateConsoleReport(allMetrics, refs, params)
       padRight(tr("rep.colMedian"), 9) +
       padRight(tr("rep.colMeanClip"), 10) +
       padRight(tr("rep.colMad"), 7) +
-      padRight(tr("rep.colHot"), 8) +
+      padRight(tr("rep.colHot", Math.round(params.hotPixelThresholdADU)), 10) +
       padRight(tr("rep.colSat"), 6) +
       padRight(tr("rep.colState"), 10)
    );
@@ -1191,7 +1200,7 @@ function generateConsoleReport(allMetrics, refs, params)
          padRight(m.median.toFixed(1), 9) +
          padRight(m.meanClip.toFixed(2), 10) +
          padRight(m.mad.toFixed(1), 7) +
-         padRight(String(m.nHot5k), 8) +
+         padRight(String(m.nHot5k), 10) +
          padRight(String(m.nSaturated), 6) +
          sevSymbol
       );
@@ -1218,7 +1227,7 @@ function generateConsoleReport(allMetrics, refs, params)
       var statRows = [
          { name: tr("rep.statClipMed"), vals: [] },
          { name: tr("rep.statMad"), vals: [] },
-         { name: tr("rep.statHot"), vals: [] },
+         { name: tr("rep.statHot", Math.round(params.hotPixelThresholdADU)), vals: [] },
          { name: tr("rep.statSat"), vals: [] }
       ];
 
@@ -1718,7 +1727,7 @@ function DarkAnalyzerDialog()
 
    this.bylineLabel = new Label(this);
    this.bylineLabel.useRichText = true;
-   this.bylineLabel.text = "by <span style=\"color:#5a8fd0; text-decoration:underline;\">CaeloWorks</span>";
+   this.bylineLabel.text = "by <span style=\"color:#5a8fd0; text-decoration:underline;\">CaeloWorks</span> · v" + VERSION;
    this.bylineLabel.textAlignment = TextAlign_Left | TextAlign_VertCenter;
    this.bylineLabel.toolTip = "https://pixinsight-scripts.caelo.works/en — v" + VERSION;
    this.bylineLabel.onMousePress = function()
@@ -1775,12 +1784,17 @@ function DarkAnalyzerDialog()
    this.fileTreeBox.headerVisible = true;
    this.fileTreeBox.headerSorting = true;
    this.fileTreeBox.multipleSelection = true;
+   // Never show a horizontal scrollbar: the File column is sized to fill the
+   // exact remaining width (see fitFileColumn), and any rounding overflow is
+   // clipped rather than scrolled.
+   this.fileTreeBox.horizontalScrollBarVisible = false;
    this.fileTreeBox.sort(1, false);
    // Hidden column COL_PATH holds the full file path: it is the unique
    // row identifier. Sorts (automatic or via headers) reorder the rows,
    // so rows are never accessed by index.
-   this.fileTreeBox.numberOfColumns = NUM_COLS;
+   this.fileTreeBox.numberOfColumns = NUM_COLS + 1;  // +1 for the spacer column
    this.fileTreeBox.setHeaderText(COL_PATH, "");
+   this.fileTreeBox.setHeaderText(COL_SPACER, "");   // empty flexible-space column
 
    this.fileTreeBox.setColumnWidth(0, 50);
    this.fileTreeBox.setColumnWidth(1, 330);
@@ -1795,21 +1809,25 @@ function DarkAnalyzerDialog()
    if (typeof this.fileTreeBox.hideColumn === "function")
       this.fileTreeBox.hideColumn(COL_PATH);
    this.fileTreeBox.setMinSize(800, 300);
-   // Keep the File column absorbing the free width on window resize
+   // Keep the File column absorbing the free width on window resize. The
+   // handler is duplicated on the dialog because some PixInsight versions do
+   // not forward onResize from the TreeBox itself.
    this.fileTreeBox.onResize = function() { self.fitFileColumn(); };
+   this.onResize = function() { self.fitFileColumn(); };
 
    // -----------------------------------------------------------------------
    // File buttons
    // -----------------------------------------------------------------------
    this.addFilesButton = new PushButton(this);
+   this.addFilesButton.icon = this.scaledResource(":/icons/add.png");
    this.addFilesButton.onClick = function()
    {
       var ofd = new OpenFileDialog();
       ofd.multipleSelections = true;
       ofd.caption = tr("dlg.selectFiles");
       ofd.filters = [
-         [tr("dlg.darkFilter"), "*.fits", "*.fit", "*.xisf"],
-         [tr("dlg.fitsFilter"), "*.fits", "*.fit"],
+         [tr("dlg.darkFilter"), "*.fits", "*.fit", "*.fts", "*.xisf"],
+         [tr("dlg.fitsFilter"), "*.fits", "*.fit", "*.fts"],
          [tr("dlg.xisfFilter"), "*.xisf"]
       ];
       if (ofd.execute()) {
@@ -1819,6 +1837,7 @@ function DarkAnalyzerDialog()
    };
 
    this.addDirButton = new PushButton(this);
+   this.addDirButton.icon = this.scaledResource(":/icons/folder.png");
    this.addDirButton.onClick = function()
    {
       var gdd = new GetDirectoryDialog();
@@ -1826,7 +1845,7 @@ function DarkAnalyzerDialog()
       if (gdd.execute()) {
          var dir = gdd.directory;
          var search = new FileFind();
-         var extensions = [".fits", ".fit", ".xisf", ".FITS", ".FIT", ".XISF"];
+         var extensions = [".fits", ".fit", ".fts", ".xisf", ".FITS", ".FIT", ".FTS", ".XISF"];
          for (var e = 0; e < extensions.length; ++e) {
             if (search.begin(dir + "/*" + extensions[e])) {
                do {
@@ -1839,6 +1858,7 @@ function DarkAnalyzerDialog()
    };
 
    this.removeButton = new PushButton(this);
+   this.removeButton.icon = this.scaledResource(":/icons/remove.png");
    this.removeButton.onClick = function()
    {
       // Remove the selected rows (walking backwards). The file is found
@@ -1861,6 +1881,7 @@ function DarkAnalyzerDialog()
    };
 
    this.clearButton = new PushButton(this);
+   this.clearButton.icon = this.scaledResource(":/icons/delete.png");
    this.clearButton.onClick = function()
    {
       self.filePaths = [];
@@ -2044,6 +2065,14 @@ function DarkAnalyzerDialog()
    this.exclusionsButton.enabled = false;  // enabled after an analysis
    this.exclusionsButton.onClick = function() { self.showExclusions(); };
 
+   // Abort button: active only while an analysis is running. It sets a flag
+   // that the analysis loop reads at the top of each iteration to break
+   // cleanly, keeping the frames already measured.
+   this.cancelRunButton = new PushButton(this);
+   this.cancelRunButton.icon = this.scaledResource(":/icons/cancel.png");
+   this.cancelRunButton.enabled = false;  // only enabled while busy
+   this.cancelRunButton.onClick = function() { self.abortRequested = true; };
+
    this.closeButton = new PushButton(this);
    this.closeButton.icon = this.scaledResource(":/icons/close.png");
    this.closeButton.onClick = function() { self.cancel(); };
@@ -2052,6 +2081,7 @@ function DarkAnalyzerDialog()
    this.actionButtonsSizer.spacing = 8;
    this.actionButtonsSizer.addStretch();
    this.actionButtonsSizer.add(this.analyzeButton);
+   this.actionButtonsSizer.add(this.cancelRunButton);
    this.actionButtonsSizer.add(this.exportCsvButton);
    this.actionButtonsSizer.add(this.exclusionsButton);
    this.actionButtonsSizer.add(this.closeButton);
@@ -2195,6 +2225,8 @@ DarkAnalyzerDialog.prototype.applyLanguage = function()
    this.exportCsvButton.toolTip = tr("btn.exportCsv.tt");
    this.exclusionsButton.text = tr("btn.exclusions");
    this.exclusionsButton.toolTip = tr("btn.exclusions.tt");
+   this.cancelRunButton.text = tr("btn.cancelRun");
+   this.cancelRunButton.toolTip = tr("btn.cancelRun.tt");
    this.closeButton.text = tr("btn.close");
    this.defaultsButton.text = tr("btn.defaults");
    this.defaultsButton.toolTip = tr("btn.defaults.tt");
@@ -2285,15 +2317,23 @@ DarkAnalyzerDialog.prototype.fitColumns = function()
 
 DarkAnalyzerDialog.prototype.fitFileColumn = function()
 {
+   // Reserve for the vertical scrollbar: the trailing spacer column is sized
+   // to this width so the scrollbar overlaps the (empty) spacer instead of the
+   // Status column, and the spacer — being the last section — absorbs any
+   // stretch so the real columns keep their widths.
+   var reserve = (typeof this.logicalPixelsToPhysical === "function") ?
+      this.logicalPixelsToPhysical(20) : 20;
    var others = 0;
-   for (var c = 0; c < NUM_COLS; ++c) {
+   for (var c = 0; c < NUM_COLS; ++c) {   // real columns only, minus the File column
       if (c !== 1)
          others += this.fileTreeBox.columnWidth(c);
    }
-   // Slack for the vertical scrollbar and the frame borders
-   var available = this.fileTreeBox.width - others - 40;
+   // The File column takes everything else, so it grows with the window while
+   // Status stays fixed.
+   var available = this.fileTreeBox.width - others - reserve;
    if (available < 150) available = 150;
    this.fileTreeBox.setColumnWidth(1, available);
+   this.fileTreeBox.setColumnWidth(COL_SPACER, reserve);
 };
 
 DarkAnalyzerDialog.prototype.renumberRows = function()
@@ -2318,6 +2358,8 @@ DarkAnalyzerDialog.prototype.setBusy = function(busy)
    this.analyzeButton.enabled = enabled;
    this.exportCsvButton.enabled = enabled && this.allMetrics.length > 0;
    this.exclusionsButton.enabled = enabled && this.allMetrics.length > 0;
+   // Inverse of the others: only cancellable while a run is in progress
+   this.cancelRunButton.enabled = busy;
    this.closeButton.enabled = enabled;
    this.addFilesButton.enabled = enabled;
    this.addDirButton.enabled = enabled;
@@ -2434,7 +2476,8 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
    this.readParamsFromGUI();
    saveParamsToSettings(this.params);
 
-   // Reset the results
+   // Reset the results and the run-abort flag (set by the Cancel button)
+   this.abortRequested = false;
    this.allMetrics = [];
    this.refs = null;
 
@@ -2456,6 +2499,10 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
 
    // Phase 1: per-frame analysis (progressive TreeBox update)
    for (var i = 0; i < this.filePaths.length; ++i) {
+      // Honor a Cancel click: break cleanly, keeping the frames already
+      // measured (the flag is flipped by processEvents() below)
+      if (this.abortRequested)
+         break;
       console.write("<end>\r" + tr("run.progress", i + 1, this.filePaths.length) +
          File.extractName(this.filePaths[i]) + File.extractExtension(this.filePaths[i]));
       console.flush();
@@ -2469,6 +2516,8 @@ DarkAnalyzerDialog.prototype.doAnalysis = function()
    }
 
    console.writeln("");  // new line after the progress indicator
+   if (this.abortRequested)
+      console.warningln(tr("run.aborted", this.allMetrics.length, this.filePaths.length));
    var elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
    console.writeln(tr("run.elapsed", elapsed));
 

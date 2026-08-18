@@ -3,10 +3,9 @@
 **This is written for a support agent, not for a user.** Quote it, do not
 paraphrase it: the sentences here are checked, a paraphrase is not.
 
-Applies to **1.9.0**. **The version is not printed in the window title.** To check
-what a user is running: have them hover the mouse over the **by CaeloWorks** link
-under the title in the script's window — the tooltip ends with the version
-(`— v1.9.0`).
+Applies to **1.9.0**. To check what a user is running: have them read the version
+shown in plain text in the window header, next to the **by CaeloWorks** link under
+the title — it reads *by CaeloWorks · v1.9.0*.
 
 **The interface is bilingual — English and French — and the user will describe
 *their* window.** A French user says *« Rejet »*, not "Rejected"; *« Seuils de
@@ -37,7 +36,7 @@ darks into their master dark in WBPP.
 | Licence | GPL-3.0 — free and open source |
 | Requires | **PixInsight 1.9.0 or newer** — Windows, macOS, Linux |
 | Where it appears | **Script → CaeloWorks → DarkFrameAnalyzer** |
-| Input formats | FITS (`.fits`, `.fit`) and XISF (`.xisf`) |
+| Input formats | FITS (`.fits`, `.fit`, `.fts`) and XISF (`.xisf`) |
 
 **The menu entry is spelled `DarkFrameAnalyzer`, as one word, with no spaces.** The
 window that opens is titled **Dark Frame Analyzer**. Users looking for a
@@ -152,14 +151,6 @@ the **exact** strings the dialog shows.
 - **Rejected** = **Rejet**
 - **Error** = **Erreur**
 
-**Careful: in English the yellow status has three names.** The table calls it
-**Alert**, the summary line under the table calls it **warning(s)**, and the CSV
-`status` column calls it **`warning`**. They are the same thing — the middle
-severity, "worth a look, not necessarily fatal". Likewise the red status is
-**Rejected** in the table, **rejected** in the summary and **`critical`** in the
-CSV. In French there is no such confusion: *« Alerte »* / *« alerte(s) »* and
-*« Rejet »* / *« rejet(s) »*.
-
 **Threshold groups and fields**
 
 - **Temperature** = **Température** — **Max deviation (°C):** = **Écart max (°C) :**
@@ -185,9 +176,8 @@ The **Darks** group (*« Darks »*) holds the frames to analyze.
 - **+ Darks** (*« + Darks »*) opens a file picker. **+ Directory**
   (*« + Répertoire »*) adds every dark found in a folder — **it does not recurse
   into subfolders.**
-- Only **`.fits`, `.fit` and `.xisf`** are offered and scanned (upper case
-  included). **`.fts` files are not recognized** and cannot be added — see the
-  known-limits section.
+- **`.fits`, `.fit`, `.fts` and `.xisf`** are offered and scanned (upper case
+  included).
 - **Adding the same file twice does nothing.** Duplicates are silently ignored.
 - **- Remove** (*« - Supprimer »*) removes the selected rows; **Clear all**
   (*« Tout vider »*) empties the list and the results. Neither deletes anything
@@ -197,8 +187,10 @@ The **Darks** group (*« Darks »*) holds the frames to analyze.
 frame read-only and closes it immediately.
 
 **During an analysis the whole window is locked** — the file list, the thresholds
-and the buttons are all disabled until the run ends. **There is no Cancel button:**
-a run cannot be interrupted from the script. See the known-limits section.
+and the other buttons are all disabled until the run ends. **A Cancel button**
+(*« Annuler »*) stays active during the run: clicking it stops the analysis
+cleanly. The frames already measured are kept, and the console reports how many
+frames were processed out of the total.
 
 ---
 
@@ -288,15 +280,8 @@ and in full in the Process Console report.
   unusual hot pixel count, or a uniformity problem.
 - **Valid** (*« Valide »*), green — nothing to report.
 
-The summary line under the table reads e.g. *"18 valid / 2 warning(s) / 1
-rejected"* (*« 18 valide(s) / 2 alerte(s) / 1 rejet(s) »*).
-
-**In English the yellow status is called three different things, and they all mean
-the same thing:** **Alert** in the table, **warning(s)** in that summary line, and
-**`warning`** in the CSV `status` column. Same for the red one: **Rejected** in the
-table, **rejected** in the summary, **`critical`** in the CSV. If a user says
-"warning", they mean an Alert. In French the wording is consistent throughout
-(*« Alerte »*, *« Rejet »*).
+The summary line under the table reads e.g. *"18 valid / 2 Alert(s) / 1
+Rejected"* (*« 18 valide(s) / 2 alerte(s) / 1 rejet(s) »*).
 
 ### Detection is relative to the series, not absolute
 
@@ -350,9 +335,7 @@ the series is very uniform, this safeguard is usually why. It is intentional.
   listing every reason the frame was flagged**. That tooltip is the answer to
   almost every "why was this frame rejected" question.
 - The Status column shows **Valid** / **Alert** / **Rejected** / **Error**
-  (*« Valide » / « Alerte » / « Rejet » / « Erreur »*). In English, beware: the
-  summary line below the table calls an **Alert** a **warning**, and the CSV calls
-  it **`warning`** too. Same status, three spellings.
+  (*« Valide » / « Alerte » / « Rejet » / « Erreur »*).
 - After an analysis the table is sorted by status, so flagged frames group at the
   top and valid frames at the bottom.
 - **N/A** in a column means the measurement could not be made: no `CCD-TEMP` header
@@ -520,40 +503,32 @@ darks, so the result is no longer silent.
 them to the banner: it explains why only a partial (absolute-only) analysis was
 performed.
 
-### `.fts` dark frames cannot be added
-
-**Symptom:** *"My darks don't show up in the file picker"* or *"+ Directory added
-nothing."*
-
-**Cause:** only `.fits`, `.fit` and `.xisf` are offered by the picker and scanned by
-the directory search. The `.fts` extension — which some capture software writes —
-is not recognized.
-
-**Workaround:** rename the files to `.fits`. It is the same format. Escalate the
-request so the extension gets added.
-
-### An analysis cannot be cancelled
+### Cancelling an analysis in progress
 
 **Symptom:** *"I loaded 300 darks by mistake and now I'm stuck."*
 
-**Cause:** the window locks during a run and there is no Cancel button. The run must
-finish. The console shows the progress (*"Analyzing [12/300] …"* / *« Analyse
-[12/300] … »*).
+**Answer:** click the **Cancel** button (*« Annuler »*), which stays active while
+the analysis runs. The run stops cleanly at the next frame; the frames already
+measured are kept and the console reports how many were processed out of the total
+(*"Analysis cancelled: 12 of 300 darks processed (kept)."* / *« Analyse annulée :
+12 sur 300 darks traités (conservés). »*). The console also shows live progress
+during the run (*"Analyzing [12/300] …"* / *« Analyse [12/300] … »*).
 
-**Workaround:** none inside the script. Confirm the limit and apologise.
+### The console hot-pixel label and the CSV `hot_5k` column show different thresholds
 
-### The console labels hot pixels "Hot>5k" even when the threshold is different
+**Symptom:** *"The console report says Hot>3000 but the exported CSV column is still
+called hot_5k — which one is right?"*
 
-**Symptom:** *"I set the hot pixel threshold to 3000 but the report still says
-Hot>5k — is my setting being ignored?"*
+**Cause:** both are right. The console labels now follow the setting: with a
+threshold of 3000 the table header reads `Hot>3000` and the statistics row reads
+`Hot pixels > 3000`. The count always followed the threshold; the label does too
+now. The CSV column, on the other hand, is deliberately kept named `hot_5k`
+regardless of the threshold — it is a **stable machine identifier** for downstream
+tooling, so renaming it would break existing pipelines.
 
-**Cause:** the count is correct and does follow the threshold. Only the **label** is
-hard-coded: the console table header reads `Hot>5k` and the statistics row reads
-`Hot pixels > 5000` regardless of the setting. The CSV column is likewise always
-named `hot_5k`.
-
-**Answer:** reassure them — the setting *is* applied, only the column title is
-wrong. Cosmetic, and ours to fix.
+**Answer:** reassure them — the console value and the CSV value are the same number,
+computed at their configured threshold. The CSV header name is fixed on purpose so
+scripts that read the export keep working.
 
 ### Clicking a numeric column header sorts it as text
 
@@ -610,9 +585,9 @@ The static texts switch immediately, but a table that is already filled keeps th
 statuses and tooltips of the previous language. Click **Analyze** again.
 
 **"My darks don't appear in the file picker."**
-They are probably `.fts` files, which are not recognized in 1.9.0 — only `.fits`,
-`.fit` and `.xisf`. Renaming them to `.fits` works. Also check that **+ Directory**
-was not pointed at a parent folder: it does not search subfolders.
+The picker and **+ Directory** recognize `.fits`, `.fit`, `.fts` and `.xisf` (upper
+case included). Check that **+ Directory** was not pointed at a parent folder: it
+does not search subfolders.
 
 **"I moved frames to rejected/ by mistake."**
 Nothing is lost — the files are intact in the `rejected` subfolder next to the
@@ -655,8 +630,8 @@ submenu — and **PixInsight must be restarted** after the install.
 actionable:
 
 1. **PixInsight version** and **operating system** (Help → About).
-2. **Dark Frame Analyzer version** — hover the **by CaeloWorks** link under the
-   title; the tooltip ends with the version.
+2. **Dark Frame Analyzer version** — read it in plain text in the window header,
+   next to the **by CaeloWorks** link under the title (*by CaeloWorks · v1.9.0*).
 3. **The Process Console output of the run.** It carries the detected acquisition
    parameters, the per-frame table, the series references and every alert with its
    numbers. It is almost always enough on its own.
