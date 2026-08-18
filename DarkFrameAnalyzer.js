@@ -58,6 +58,9 @@ var COL_DELTA = 7;   // corner-vs-center gradient (ADU)
 var COL_STATE = 8;   // severity / status
 var COL_PATH  = 9;   // hidden: full file path (unique row identifier)
 var NUM_COLS  = 10;
+var COL_SPACER = 10; // trailing empty column used as flexible space: it is the
+                     // stretch target and sits under the vertical scrollbar, so
+                     // the real columns keep their widths and none is masked
 
 
 // ============================================================================
@@ -89,11 +92,11 @@ var STRINGS = {
       "col.unif":          "Δ corn.",
       "col.state":         "Status",
       "files.group":       "Darks",
-      "btn.addFiles":      "+ Darks",
+      "btn.addFiles":      "Darks",
       "btn.addFiles.tt":   "Add FITS files",
-      "btn.addDir":        "+ Directory",
+      "btn.addDir":        "Directory",
       "btn.addDir.tt":     "Add all FITS files from a directory",
-      "btn.remove":        "- Remove",
+      "btn.remove":        "Remove",
       "btn.remove.tt":     "Remove the selected files",
       "btn.clear":         "Clear all",
       "btn.clear.tt":      "Remove all files",
@@ -254,11 +257,11 @@ var STRINGS = {
       "col.unif":          "Δ coins",
       "col.state":         "Etat",
       "files.group":       "Darks",
-      "btn.addFiles":      "+ Darks",
+      "btn.addFiles":      "Darks",
       "btn.addFiles.tt":   "Ajouter des fichiers FITS",
-      "btn.addDir":        "+ Répertoire",
+      "btn.addDir":        "Répertoire",
       "btn.addDir.tt":     "Ajouter tous les FITS d'un répertoire",
-      "btn.remove":        "- Supprimer",
+      "btn.remove":        "Supprimer",
       "btn.remove.tt":     "Supprimer les fichiers sélectionnés",
       "btn.clear":         "Tout vider",
       "btn.clear.tt":      "Supprimer tous les fichiers",
@@ -1727,12 +1730,17 @@ function DarkAnalyzerDialog()
    this.fileTreeBox.headerVisible = true;
    this.fileTreeBox.headerSorting = true;
    this.fileTreeBox.multipleSelection = true;
+   // Never show a horizontal scrollbar: the File column is sized to fill the
+   // exact remaining width (see fitFileColumn), and any rounding overflow is
+   // clipped rather than scrolled.
+   this.fileTreeBox.horizontalScrollBarVisible = false;
    this.fileTreeBox.sort(1, false);
    // Hidden column COL_PATH holds the full file path: it is the unique
    // row identifier. Sorts (automatic or via headers) reorder the rows,
    // so rows are never accessed by index.
-   this.fileTreeBox.numberOfColumns = NUM_COLS;
+   this.fileTreeBox.numberOfColumns = NUM_COLS + 1;  // +1 for the spacer column
    this.fileTreeBox.setHeaderText(COL_PATH, "");
+   this.fileTreeBox.setHeaderText(COL_SPACER, "");   // empty flexible-space column
 
    this.fileTreeBox.setColumnWidth(0, 50);
    this.fileTreeBox.setColumnWidth(1, 330);
@@ -1747,13 +1755,17 @@ function DarkAnalyzerDialog()
    if (typeof this.fileTreeBox.hideColumn === "function")
       this.fileTreeBox.hideColumn(COL_PATH);
    this.fileTreeBox.setMinSize(800, 300);
-   // Keep the File column absorbing the free width on window resize
+   // Keep the File column absorbing the free width on window resize. The
+   // handler is duplicated on the dialog because some PixInsight versions do
+   // not forward onResize from the TreeBox itself.
    this.fileTreeBox.onResize = function() { self.fitFileColumn(); };
+   this.onResize = function() { self.fitFileColumn(); };
 
    // -----------------------------------------------------------------------
    // File buttons
    // -----------------------------------------------------------------------
    this.addFilesButton = new PushButton(this);
+   this.addFilesButton.icon = this.scaledResource(":/icons/add.png");
    this.addFilesButton.onClick = function()
    {
       var ofd = new OpenFileDialog();
@@ -1771,6 +1783,7 @@ function DarkAnalyzerDialog()
    };
 
    this.addDirButton = new PushButton(this);
+   this.addDirButton.icon = this.scaledResource(":/icons/folder.png");
    this.addDirButton.onClick = function()
    {
       var gdd = new GetDirectoryDialog();
@@ -1791,6 +1804,7 @@ function DarkAnalyzerDialog()
    };
 
    this.removeButton = new PushButton(this);
+   this.removeButton.icon = this.scaledResource(":/icons/remove.png");
    this.removeButton.onClick = function()
    {
       // Remove the selected rows (walking backwards). The file is found
@@ -1813,6 +1827,7 @@ function DarkAnalyzerDialog()
    };
 
    this.clearButton = new PushButton(this);
+   this.clearButton.icon = this.scaledResource(":/icons/delete.png");
    this.clearButton.onClick = function()
    {
       self.filePaths = [];
@@ -2237,15 +2252,23 @@ DarkAnalyzerDialog.prototype.fitColumns = function()
 
 DarkAnalyzerDialog.prototype.fitFileColumn = function()
 {
+   // Reserve for the vertical scrollbar: the trailing spacer column is sized
+   // to this width so the scrollbar overlaps the (empty) spacer instead of the
+   // Status column, and the spacer — being the last section — absorbs any
+   // stretch so the real columns keep their widths.
+   var reserve = (typeof this.logicalPixelsToPhysical === "function") ?
+      this.logicalPixelsToPhysical(20) : 20;
    var others = 0;
-   for (var c = 0; c < NUM_COLS; ++c) {
+   for (var c = 0; c < NUM_COLS; ++c) {   // real columns only, minus the File column
       if (c !== 1)
          others += this.fileTreeBox.columnWidth(c);
    }
-   // Slack for the vertical scrollbar and the frame borders
-   var available = this.fileTreeBox.width - others - 40;
+   // The File column takes everything else, so it grows with the window while
+   // Status stays fixed.
+   var available = this.fileTreeBox.width - others - reserve;
    if (available < 150) available = 150;
    this.fileTreeBox.setColumnWidth(1, available);
+   this.fileTreeBox.setColumnWidth(COL_SPACER, reserve);
 };
 
 DarkAnalyzerDialog.prototype.renumberRows = function()
