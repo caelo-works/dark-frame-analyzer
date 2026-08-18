@@ -37,7 +37,7 @@ darks into their master dark in WBPP.
 | Licence | GPL-3.0 — free and open source |
 | Requires | **PixInsight 1.9.0 or newer** — Windows, macOS, Linux |
 | Where it appears | **Script → CaeloWorks → DarkFrameAnalyzer** |
-| Input formats | FITS (`.fits`, `.fit`) and XISF (`.xisf`) |
+| Input formats | FITS (`.fits`, `.fit`, `.fts`) and XISF (`.xisf`) |
 
 **The menu entry is spelled `DarkFrameAnalyzer`, as one word, with no spaces.** The
 window that opens is titled **Dark Frame Analyzer**. Users looking for a
@@ -185,9 +185,8 @@ The **Darks** group (*« Darks »*) holds the frames to analyze.
 - **+ Darks** (*« + Darks »*) opens a file picker. **+ Directory**
   (*« + Répertoire »*) adds every dark found in a folder — **it does not recurse
   into subfolders.**
-- Only **`.fits`, `.fit` and `.xisf`** are offered and scanned (upper case
-  included). **`.fts` files are not recognized** and cannot be added — see the
-  known-limits section.
+- **`.fits`, `.fit`, `.fts` and `.xisf`** are offered and scanned (upper case
+  included).
 - **Adding the same file twice does nothing.** Duplicates are silently ignored.
 - **- Remove** (*« - Supprimer »*) removes the selected rows; **Clear all**
   (*« Tout vider »*) empties the list and the results. Neither deletes anything
@@ -510,18 +509,6 @@ is the honest minimum for a robust median and MAD, but **the window says nothing
 **Answer:** have them add the whole series. This is a real gap in the interface;
 report it if a user is annoyed by it.
 
-### `.fts` dark frames cannot be added
-
-**Symptom:** *"My darks don't show up in the file picker"* or *"+ Directory added
-nothing."*
-
-**Cause:** only `.fits`, `.fit` and `.xisf` are offered by the picker and scanned by
-the directory search. The `.fts` extension — which some capture software writes —
-is not recognized.
-
-**Workaround:** rename the files to `.fits`. It is the same format. Escalate the
-request so the extension gets added.
-
 ### An analysis cannot be cancelled
 
 **Symptom:** *"I loaded 300 darks by mistake and now I'm stuck."*
@@ -599,9 +586,9 @@ The static texts switch immediately, but a table that is already filled keeps th
 statuses and tooltips of the previous language. Click **Analyze** again.
 
 **"My darks don't appear in the file picker."**
-They are probably `.fts` files, which are not recognized in 1.9.0 — only `.fits`,
-`.fit` and `.xisf`. Renaming them to `.fits` works. Also check that **+ Directory**
-was not pointed at a parent folder: it does not search subfolders.
+The picker and **+ Directory** recognize `.fits`, `.fit`, `.fts` and `.xisf` (upper
+case included). Check that **+ Directory** was not pointed at a parent folder: it
+does not search subfolders.
 
 **"I moved frames to rejected/ by mistake."**
 Nothing is lost — the files are intact in the `rejected` subfolder next to the
