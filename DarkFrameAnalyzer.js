@@ -1670,7 +1670,7 @@ function DarkAnalyzerDialog()
 
    this.bylineLabel = new Label(this);
    this.bylineLabel.useRichText = true;
-   this.bylineLabel.text = "by <span style=\"color:#5a8fd0; text-decoration:underline;\">CaeloWorks</span>";
+   this.bylineLabel.text = "by <span style=\"color:#5a8fd0; text-decoration:underline;\">CaeloWorks</span> · v" + VERSION;
    this.bylineLabel.textAlignment = TextAlign_Left | TextAlign_VertCenter;
    this.bylineLabel.toolTip = "https://pixinsight-scripts.caelo.works/en — v" + VERSION;
    this.bylineLabel.onMousePress = function()
