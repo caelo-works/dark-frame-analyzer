@@ -6,6 +6,43 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.10.0] — 2026-08-18
+
+### Added
+- `.fts` dark frames are recognized by the file picker and the directory
+  scan — same FITS format as `.fits`, previously unloadable.
+- A **Cancel** button interrupts a running analysis. Frames already
+  measured are kept and the console reports how many were processed out
+  of the total.
+- The version is shown in plain text in the window header, next to the
+  *by CaeloWorks* link.
+- Icons on the Darks-list buttons (add files, add directory, remove,
+  clear all).
+
+### Changed
+- The hot-pixel report labels follow the configured threshold (e.g.
+  `Hot>3000` / `Hot pixels > 3000`) instead of the fixed `Hot>5k`. The
+  CSV header stays `hot_5k` — a stable machine identifier for downstream
+  tooling.
+- English status wording is now consistent between the table and the
+  summary line (**Alert** / **Rejected**). The CSV status values
+  (`ok` / `warning` / `critical`) are unchanged.
+- The Darks-list buttons drop their `+` / `-` text prefixes, now carried
+  by the icons.
+
+### Fixed
+- Fewer than 3 readable darks no longer report every frame as **Valid**
+  in silence: an explicit warning is shown, and the absolute,
+  series-independent checks (read error, temperature, saturation, spatial
+  gradient) are still applied.
+- The numeric columns **Median**, **Noise**, **Hot px** and **Sat.** sort
+  in numeric order instead of as text (`9` before `100`). The signed
+  **Temp.** and **Δ corn.** columns keep the text-sort limitation
+  (documented; use the CSV export for a reliable order on those two).
+- No horizontal scrollbar on the file list, and the **Status** column is
+  no longer stretched nor hidden under the vertical scrollbar — a trailing
+  flexible-space column absorbs the layout stretch.
+
 ## [1.9.0] — 2026-07-11
 
 ### Added
@@ -125,6 +162,7 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   anti-quantization safeguards, color-coded results table and detailed
   console report. Includes the Python reference implementation.
 
-[Unreleased]: https://github.com/caelo-works/dark-frame-analyzer/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/caelo-works/dark-frame-analyzer/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.10.0
 [1.9.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.9.0
 [1.8.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.8.0
