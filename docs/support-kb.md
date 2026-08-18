@@ -119,10 +119,9 @@ the **exact** strings the dialog shows.
 
 **Buttons and groups**
 
-- **Darks** = **Darks**
-- **+ Darks** = **+ Darks**
-- **+ Directory** = **+ Répertoire**
-- **- Remove** = **- Supprimer**
+- **Darks** (the group box, and the add-files button, both read *Darks*) = **Darks**
+- **Directory** = **Répertoire**
+- **Remove** = **Supprimer**
 - **Clear all** = **Tout vider**
 - **Detection thresholds** = **Seuils de détection**
 - **Defaults** = **Défauts**
@@ -173,13 +172,13 @@ user to click **Analyze** again.
 
 The **Darks** group (*« Darks »*) holds the frames to analyze.
 
-- **+ Darks** (*« + Darks »*) opens a file picker. **+ Directory**
-  (*« + Répertoire »*) adds every dark found in a folder — **it does not recurse
-  into subfolders.**
+- **Darks** (*« Darks »*) opens a file picker. **Directory**
+  (*« Répertoire »*) adds every dark found in a folder — **it does not recurse
+  into subfolders.** Both buttons carry an icon.
 - **`.fits`, `.fit`, `.fts` and `.xisf`** are offered and scanned (upper case
   included).
 - **Adding the same file twice does nothing.** Duplicates are silently ignored.
-- **- Remove** (*« - Supprimer »*) removes the selected rows; **Clear all**
+- **Remove** (*« Supprimer »*) removes the selected rows; **Clear all**
   (*« Tout vider »*) empties the list and the results. Neither deletes anything
   from disk.
 
@@ -585,8 +584,8 @@ The static texts switch immediately, but a table that is already filled keeps th
 statuses and tooltips of the previous language. Click **Analyze** again.
 
 **"My darks don't appear in the file picker."**
-The picker and **+ Directory** recognize `.fits`, `.fit`, `.fts` and `.xisf` (upper
-case included). Check that **+ Directory** was not pointed at a parent folder: it
+The picker and **Directory** recognize `.fits`, `.fit`, `.fts` and `.xisf` (upper
+case included). Check that **Directory** was not pointed at a parent folder: it
 does not search subfolders.
 
 **"I moved frames to rejected/ by mistake."**
