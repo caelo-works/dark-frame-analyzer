@@ -6,6 +6,11 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Verified with PixInsight 1.9.5: no code change needed (no astrometric
+  solution access; the update package ships no protected file nor `etc/`
+  directory). The README version badge now shows 1.10.0.
+
 ## [1.10.0] — 2026-08-18
 
 ### Added
