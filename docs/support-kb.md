@@ -35,6 +35,7 @@ darks into their master dark in WBPP.
 | Version | 1.10.0 |
 | Licence | GPL-3.0 — free and open source |
 | Requires | **PixInsight 1.9.0 or newer** — Windows, macOS, Linux |
+| Tested with | PixInsight 1.9.4 and 1.9.5 |
 | Where it appears | **Script → CaeloWorks → DarkFrameAnalyzer** |
 | Input formats | FITS (`.fits`, `.fit`, `.fts`) and XISF (`.xisf`) |
 

@@ -6,6 +6,15 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Verified with PixInsight 1.9.5: no code change needed. The script does
+  not read astrometric solutions, and the update package ships neither
+  an `etc/` directory nor any file protected by the PixInsight
+  distribution.
+
+### Fixed
+- The README version badge showed 1.9.0 instead of 1.10.0.
+
 ## [1.10.0] — 2026-08-18
 
 ### Added
