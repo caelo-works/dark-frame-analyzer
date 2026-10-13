@@ -1,0 +1,267 @@
+%% ============================================================================
+%% DarkFrameAnalyzer-fr.pidoc — PixInsight reference documentation, French
+%% ----------------------------------------------------------------------------
+%% French counterpart of DarkFrameAnalyzer.pidoc; keep both in sync. The
+%% English page is the one PixInsight integrates (named after #feature-id);
+%% this page is deployed next to it and linked from it.
+%% ============================================================================
+
+\documentclass PIScriptDoc
+
+\script DarkFrameAnalyzer-fr
+
+\keywords { darks, calibration, master dark, détection d'aberrants, pixels chauds, WBPP }
+
+\author { Caelo Works }
+
+\copyright { 2026 Caelo Works }
+
+\brief { Analyse une série de darks et signale ceux qui ne vont pas avec le
+reste de la série, avant qu'ils n'entrent dans le master dark. }
+
+\section { Présentation } {
+
+\xref ../DarkFrameAnalyzer/DarkFrameAnalyzer.html { English version of this documentation }
+
+Un master dark est la combinaison statistique d'une série de darks
+individuels. Il suppose que toutes les images de la série décrivent le même
+capteur, à la même température, avec le même temps de pose et les mêmes
+conditions de lecture. Une seule image qui rompt cette hypothèse, parce que le
+refroidissement n'était pas stabilisé, parce qu'une fuite de lumière a atteint
+le capteur ou parce que la caméra a renvoyé une image corrompue, dégrade le
+master dark avec lequel toutes les images de lumière sont ensuite calibrées.
+
+Dark Frame Analyzer mesure chaque image d'une série et la compare à la série
+elle-même. Pour chaque dark, il calcule une médiane après réjection sigma, une
+déviation absolue médiane (MAD) exacte tirée de l'histogramme 16 bits, le
+nombre de pixels chauds et saturés, l'écart entre la température de consigne et
+la température du capteur lue dans l'en-tête FITS, et le gradient entre le
+centre de l'image et ses coins. Il classe ensuite chaque image comme valide, en
+alerte ou rejetée, et produit à la fois un tableau en couleur et un rapport
+détaillé dans la console.
+
+Le script lit les images et ne les modifie jamais. Il n'écrit rien sans que
+vous le demandiez : voir \lref confidentialite { Confidentialité, réseau et
+fichiers } plus bas.
+
+}
+
+\section { Utilisation } {
+
+Le script est accessible par le menu
+\s { Script > CaeloWorks > DarkFrameAnalyzer } . La langue de l'interface se
+choisit dans la liste \s { Langue } du dialogue ; les libellés ci-dessous sont
+ceux de l'interface en français.
+
+\subsection { Ajouter des darks } {
+
+\s Darks ouvre un sélecteur de fichiers pour choisir des images individuelles,
+et \s Répertoire ajoute tous les darks trouvés dans un répertoire. Les formats
+FITS (\c { .fits }, \c { .fit }, \c { .fts }) et XISF (\c { .xisf }) sont
+acceptés, en majuscules comme en minuscules. \s Supprimer retire les lignes
+sélectionnées et \s { Tout vider } vide la liste.
+
+Ajoutez toutes les images d'une même série en une fois : la partie statistique
+de la détection compare chaque image aux autres, donc une liste qui mélange
+deux séries, ou deux températures, produit des alertes sans signification.
+
+}
+
+\subsection { Seuils de détection } {
+
+Le panneau \s { Seuils de détection } regroupe deux types de critères, tous
+deux appliqués à chaque image.
+
+\list [spaced] {
+
+{ Les \s { critères absolus } comparent une image à une valeur fixe : l'écart
+maximal entre la température de consigne et la température du capteur, en
+degrés Celsius ; le niveau en ADU au-dessus duquel un pixel compte comme
+chaud ; le nombre maximal de pixels saturés toléré par image ; et le gradient
+maximal, en ADU, entre le centre et les coins de l'image. Ils ne dépendent pas
+du reste de la série. }
+
+{ Les \s { critères statistiques } comparent une image à sa série : une
+sensibilité en sigma pour la médiane, le bruit, le nombre de pixels chauds et
+l'uniformité, ainsi que les écarts absolus, en ADU, au-delà desquels un écart
+de la médiane ou du bruit devient une alerte ou un rejet. Ils demandent au
+moins trois images lisibles ; en dessous, le script indique que la détection
+statistique a été ignorée et n'applique que les critères absolus. }
+
+}
+
+Les seuils sont conservés d'une session à l'autre. \s Défauts rétablit les
+valeurs d'origine du script, calibrées pour les capteurs de la classe IMX585.
+
+}
+
+\subsection { Lancer l'analyse } {
+
+\s Analyser mesure chaque image de la liste. L'interface est verrouillée
+pendant l'analyse, et \s Annuler l'interrompt : les images déjà mesurées sont
+conservées, et la console indique combien d'images ont été traitées sur le
+total.
+
+}
+
+\subsection { Lire le tableau des résultats } {
+
+\table [header] {
+   { { Colonne } { Contenu } }
+   { { \s &#35; } { Position de l'image dans la liste. } }
+   { { \s Fichier } { Nom du fichier de l'image. } }
+   { { \s Temp. } { Température du capteur lue dans l'en-tête FITS, en degrés
+     Celsius. } }
+   { { \s Médiane } { Médiane de l'image après réjection sigma, en ADU : son
+     signal thermique. } }
+   { { \s Bruit } { Déviation absolue médiane de l'image, en ADU : son bruit de
+     lecture. } }
+   { { \s { Hot px } } { Nombre de pixels au-dessus du seuil de pixels
+     chauds. } }
+   { { \s Sat. } { Nombre de pixels saturés. } }
+   { { \s { &Delta; coins } } { Différence entre la médiane du centre de
+     l'image et celle de ses coins, en ADU : amp glow, fuites de lumière et
+     autres gradients spatiaux. } }
+   { { \s Etat } { \s Valide, \s Alerte, \s Rejet, ou \s Erreur quand l'image
+     n'a pas pu être lue. } }
+}
+
+Une ligne en \s Alerte s'écarte de la série sans être inutilisable : regardez-la
+et décidez. Une ligne en \s Rejet doit être écartée de l'empilement. Un clic
+sur un en-tête de colonne trie le tableau ; les colonnes \s Temp. et
+\s { &Delta; coins } sont triées comme du texte, parce qu'elles portent un
+signe : utilisez l'export CSV quand l'ordre de ces deux colonnes compte.
+
+}
+
+\subsection { Rapport console } {
+
+La console reçoit un tableau des mesures de chaque image, les valeurs de
+référence calculées pour la série, la raison pour laquelle chaque image a été
+signalée, et un résumé des images valides, en alerte et rejetées. C'est la
+trace complète de l'analyse, et elle se copie hors de PixInsight comme du
+texte brut.
+
+}
+
+\subsection { Export CSV } {
+
+\s { Exporter CSV... } écrit toutes les mesures de la dernière analyse dans un
+fichier CSV, à l'emplacement choisi dans une boîte d'enregistrement. Les
+en-têtes sont des identifiants anglais fixes, quelle que soit la langue de
+l'interface, pour que le fichier reste lisible par d'autres outils.
+
+}
+
+\subsection { Exclusions WBPP } {
+
+\s { Exclusions WBPP... } ouvre la liste des images à écarter de l'empilement :
+les images rejetées, et aussi celles en alerte quand
+\s { Inclure les alertes } est coché. Depuis ce dialogue,
+\s { Exporter .txt... } écrit la liste dans un fichier texte, un chemin par
+ligne, à l'emplacement de votre choix, et \s { Déplacer vers rejected/... }
+déplace les images listées dans un sous-répertoire \c rejected créé à côté
+d'elles, pour que WBPP ne les voie plus. Le déplacement demande d'abord une
+confirmation, et les images sont déplacées, jamais supprimées.
+
+}
+
+\subsection { Langue de l'interface } {
+
+L'interface existe en anglais et en français, au choix dans la liste
+\s { Langue } du dialogue. Le choix est conservé d'une session à l'autre. Les
+en-têtes de l'export CSV ne changent pas.
+
+}
+
+}
+
+\section { \label confidentialite Confidentialité, réseau et fichiers } {
+
+\subsection { Réseau } {
+
+Le script n'établit aucune connexion réseau de lui-même. Il ne télécharge rien,
+n'envoie rien et ne contient aucune télémétrie : rien n'est mesuré, compté ou
+transmis à votre sujet ni au sujet de vos images.
+
+Une seule action fait intervenir le réseau, et uniquement à votre demande : un
+clic sur la ligne \e { by CaeloWorks } de l'en-tête du dialogue ouvre la page
+de ce script sur le site du développeur,
+\xref https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer
+{ pixinsight-scripts.caelo.works } , dans le navigateur web configuré sur
+votre système. L'URL complète est affichée dans l'infobulle de cette ligne
+avant le clic, et suit la langue de l'interface.
+
+}
+
+\subsection { Programmes externes } {
+
+Pour ouvrir cette page, et seulement dans ce cas, le script demande à votre
+système d'exploitation d'ouvrir l'URL avec votre navigateur par défaut. Il
+exécute \c { cmd /c start } sous Windows, \c { /usr/bin/open } sous macOS et
+\c { xdg-open } sous Linux, avec l'URL pour seul argument. Aucun autre
+programme n'est jamais lancé, aucun programme n'est distribué avec le script,
+et rien n'est lancé sans un clic explicite de votre part.
+
+}
+
+\subsection { Fichiers écrits hors de l'installation de PixInsight } {
+
+Le script n'écrit jamais dans l'installation de PixInsight et ne modifie
+jamais vos darks. Hors de l'installation, il n'écrit que sur une action
+explicite, et uniquement là où vous le lui indiquez :
+
+\list [spaced] {
+
+{ Le \s { rapport CSV } de l'analyse, au chemin choisi dans la boîte
+d'enregistrement de \s { Exporter CSV... } . }
+
+{ La \s { liste d'exclusion } , un fichier \c { .txt } , au chemin choisi dans
+la boîte d'enregistrement du dialogue \s { Exclusions WBPP... } . }
+
+{ Un \s { sous-répertoire \c rejected } à côté des images à écarter, créé par
+\s { Déplacer vers rejected/... } dans ce même dialogue, après confirmation.
+Les images rejetées y sont déplacées ; aucun fichier n'est supprimé. }
+
+}
+
+}
+
+\subsection { Réglages } {
+
+Les seuils de détection et la langue de l'interface sont enregistrés via
+l'interface de réglages de PixInsight, sous la clé \c DarkFrameAnalyzer des
+réglages de l'application. Le script n'y lit et n'y écrit rien d'autre, et ne
+touche à aucun réglage appartenant à PixInsight ou à un autre produit.
+
+}
+
+}
+
+\section { Prérequis et limites } {
+
+\list [spaced] {
+
+{ PixInsight 1.9.0 ou plus récent, sous Windows, macOS et Linux. }
+
+{ Darks FITS (\c { .fits }, \c { .fit }, \c { .fts }) et XISF
+(\c { .xisf }). }
+
+{ La température du capteur et la consigne sont lues dans l'en-tête FITS. Une
+image dont l'en-tête ne porte ni l'une ni l'autre ne peut pas être contrôlée
+en dérive thermique. }
+
+{ Les critères statistiques demandent au moins trois images lisibles. En
+dessous, le script le signale explicitement et n'applique que les critères
+absolus. }
+
+{ Les colonnes \s Temp. et \s { &Delta; coins } du tableau sont triées comme
+du texte, car aucune forme lisible d'un nombre signé ne se trie correctement
+comme du texte dans un tableau PixInsight. Utilisez l'export CSV pour ordonner
+une série selon ces deux mesures. }
+
+}
+
+}
+
+\make

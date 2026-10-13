@@ -1,0 +1,257 @@
+%% ============================================================================
+%% DarkFrameAnalyzer.pidoc — PixInsight reference documentation, English
+%% ----------------------------------------------------------------------------
+%% Compile with the Documentation Compiler script (command-line mode is
+%% driven by scripts/build-script-doc.sh). The generated page is versioned
+%% in doc/scripts/DarkFrameAnalyzer/ and deployed by the update package.
+%% The French page lives in DarkFrameAnalyzer-fr.pidoc; keep both in sync.
+%% ============================================================================
+
+\documentclass PIScriptDoc
+
+\script DarkFrameAnalyzer
+
+\keywords { dark frames, calibration, master dark, outlier detection, hot pixels, WBPP }
+
+\author { Caelo Works }
+
+\copyright { 2026 Caelo Works }
+
+\brief { Analyzes a series of dark frames and flags the ones that do not
+belong with the rest of the series, before they reach the master dark. }
+
+\description {
+
+\xref ../DarkFrameAnalyzer-fr/DarkFrameAnalyzer-fr.html { Version française de cette documentation }
+
+A master dark is a statistical combination of a series of individual darks.
+It assumes that all the frames of the series describe the same sensor, at the
+same temperature, with the same exposure time and the same read conditions. A
+single frame that breaks this assumption, because the cooling had not settled,
+because a light leak reached the sensor, or because the camera returned a
+corrupt frame, degrades the master dark that every light frame is then
+calibrated with.
+
+Dark Frame Analyzer measures each frame of a series and compares it with the
+series itself. For every dark it computes a sigma-clipped median, an exact
+median absolute deviation derived from the 16-bit histogram, the number of hot
+and saturated pixels, the deviation between the temperature setpoint and the
+sensor temperature read from the FITS header, and the gradient between the
+center of the frame and its corners. It then classifies every frame as valid,
+as an alert, or as rejected, and reports both a color-coded table and a
+detailed console report.
+
+The script reads the frames, and never modifies them. It writes nothing unless
+you ask for it: see \lref privacy { Privacy, network and files } below.
+
+}
+
+\usage {
+
+The script is available from the \s { Script > CaeloWorks > DarkFrameAnalyzer }
+menu item.
+
+\subsection { Adding dark frames } {
+
+\s Darks opens a file dialog to select individual frames, and \s Directory
+adds every dark found in a directory. FITS (\c { .fits }, \c { .fit }, \c { .fts }) and
+XISF (\c { .xisf }) frames are accepted, in uppercase or lowercase. \s Remove
+drops the selected rows and \s { Clear all } empties the list.
+
+All the frames of one series should be added at once: the statistical part of
+the detection compares each frame with the others, so a list that mixes two
+different series, or two temperatures, produces meaningless alerts.
+
+}
+
+\subsection { Detection thresholds } {
+
+The \s { Detection thresholds } panel holds two kinds of criterion, and both
+are applied to every frame.
+
+\list [spaced] {
+
+{ \s { Absolute criteria } compare a frame with a fixed value: the maximum
+deviation between the temperature setpoint and the sensor temperature, in
+degrees Celsius; the ADU level above which a pixel counts as hot; the maximum
+number of saturated pixels tolerated per frame; and the maximum gradient, in
+ADU, between the center and the corners of the frame. They do not depend on
+the rest of the series. }
+
+{ \s { Statistical criteria } compare a frame with its series: a sensitivity
+in sigma units for the median, the noise, the hot pixel count and the
+uniformity, plus the absolute deviations, in ADU, above which a deviation of
+the median or of the noise becomes an alert or a rejection. They need at least
+three readable frames; below that, the script reports that the statistical
+detection has been skipped, and applies the absolute criteria only. }
+
+}
+
+The thresholds persist across sessions. \s Defaults restores the values
+calibrated for IMX585-class sensors that the script ships with.
+
+}
+
+\subsection { Running the analysis } {
+
+\s Analyze measures every frame of the list. The interface is locked while the
+analysis runs, and \s Cancel interrupts it: the frames already measured are
+kept, and the console reports how many frames were processed out of the total.
+
+}
+
+\subsection { Reading the results table } {
+
+\table [header] {
+   { { Column } { Contents } }
+   { { \s &#35; } { Position of the frame in the list. } }
+   { { \s File } { File name of the frame. } }
+   { { \s Temp. } { Sensor temperature read from the FITS header, in degrees
+     Celsius. } }
+   { { \s Median } { Sigma-clipped median of the frame, in ADU: its thermal
+     signal. } }
+   { { \s Noise } { Median absolute deviation of the frame, in ADU: its read
+     noise. } }
+   { { \s { Hot px } } { Number of pixels above the hot pixel threshold. } }
+   { { \s Sat. } { Number of saturated pixels. } }
+   { { \s { &Delta; corn. } } { Difference between the median of the center of
+     the frame and the median of its corners, in ADU: amp glow, light leaks
+     and other spatial gradients. } }
+   { { \s Status } { \s Valid, \s Alert, \s Rejected, or \s Error when the
+     frame could not be read. } }
+}
+
+A row marked \s Alert deviates from the series without being unusable: look at
+it, and decide. A row marked \s Rejected should be kept out of the
+integration. Clicking a column header sorts the table; the \s Temp. and
+\s { &Delta; corn. } columns are sorted as text, because they carry a sign, so
+use the CSV export when the order of those two columns matters.
+
+}
+
+\subsection { Console report } {
+
+The console receives a table of the per-frame metrics, the reference values
+computed for the series, the reason why each frame has been flagged, and a
+summary of the valid, alerted and rejected frames. It is the complete record
+of the analysis, and it can be copied out of PixInsight as plain text.
+
+}
+
+\subsection { CSV export } {
+
+\s { Export CSV... } writes every metric of the last analysis to a CSV file,
+at the location you choose in a save dialog. The headers are fixed English
+identifiers, whatever the language of the interface, so that the file can be
+read by other tools.
+
+}
+
+\subsection { WBPP exclusions } {
+
+\s { WBPP exclusions... } opens the list of the frames that should be kept out
+of the integration: the rejected frames, and also the alerted ones when
+\s { Include alerts } is checked. From that dialog, \s { Export .txt... }
+writes the list to a text file, one path per line, at a location you choose,
+and \s { Move to rejected/... } moves the listed frames to a \c rejected
+subdirectory created next to them, so that WBPP no longer sees them. The move
+asks for a confirmation first, and the frames are moved, never deleted.
+
+}
+
+\subsection { Interface language } {
+
+The interface is available in English and French, selected from the language
+list of the dialog. The choice persists across sessions. The headers of the
+CSV export are unaffected.
+
+}
+
+}
+
+\section { \label privacy Privacy, network and files } {
+
+\subsection { Network } {
+
+The script makes no network connection of its own. It downloads nothing,
+uploads nothing, and contains no telemetry: nothing is measured, counted or
+transmitted about you or about your frames.
+
+One action involves the network, and only when you ask for it: clicking the
+\e { by CaeloWorks } line in the header of the dialog opens the page of this
+script on the developer website, at
+\xref https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer
+{ pixinsight-scripts.caelo.works }, in the web browser configured on your
+system. The full URL is shown in the tooltip of that line before you click it,
+and follows the language of the interface.
+
+}
+
+\subsection { External programs } {
+
+To open that page, and only then, the script asks your operating system to
+open the URL with your default web browser. It runs \c { cmd /c start } on
+Windows, \c { /usr/bin/open } on macOS and \c { xdg-open } on Linux, with the URL as
+its only argument. No other program is ever launched, no program is
+distributed with the script, and nothing is launched without an explicit click
+from you.
+
+}
+
+\subsection { Files written outside the PixInsight installation } {
+
+The script never writes inside the PixInsight installation, and never modifies
+your dark frames. Outside the installation it writes only on an explicit
+action, and only where you tell it to:
+
+\list [spaced] {
+
+{ The \s { CSV report } of the analysis, at the path selected in the save
+dialog of \s { Export CSV... } . }
+
+{ The \s { exclusion list } , a \c { .txt } file, at the path selected in the save
+dialog of the \s { WBPP exclusions... } dialog. }
+
+{ A \s { \c rejected subdirectory } next to the frames to exclude, created by
+\s { Move to rejected/... } in that same dialog, after a confirmation.
+The rejected frames are moved into it; no file is deleted. }
+
+}
+
+}
+
+\subsection { Settings } {
+
+The detection thresholds and the language of the interface are stored through
+the settings interface of PixInsight, under the \c DarkFrameAnalyzer key of
+the settings of the application. The script reads and writes nothing else
+there, and touches no setting belonging to PixInsight or to another product.
+
+}
+
+}
+
+\section { Requirements and limitations } {
+
+\list [spaced] {
+
+{ PixInsight 1.9.0 or newer, on Windows, macOS and Linux. }
+
+{ FITS (\c { .fits }, \c { .fit }, \c { .fts }) and XISF (\c { .xisf }) dark frames. }
+
+{ The sensor temperature and the setpoint are read from the FITS header. A
+frame whose header carries neither cannot be checked for thermal drift. }
+
+{ The statistical criteria need at least three readable frames. With fewer,
+the script says so explicitly and applies the absolute criteria only. }
+
+{ The \s Temp. and \s { &Delta; corn. } columns of the table are sorted as
+text, because no readable form of a signed number sorts correctly as text in a
+PixInsight tree box. Use the CSV export to order a series on those two
+metrics. }
+
+}
+
+}
+
+\make

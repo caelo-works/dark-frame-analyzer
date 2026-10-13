@@ -6,11 +6,29 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.11.0] — 2026-10-13
+
+### Added
+- Reference documentation installed with the script by the update
+  repository, in English and French, and integrated in the PixInsight
+  documentation: usage guide, results table, thresholds, exports, and a
+  *Privacy, network and files* section describing the only network-related
+  action, the only external program launched and every location written
+  outside the PixInsight installation (CPD Program Rules v1.0, rule 6.1).
+
 ### Changed
+- The *by CaeloWorks* link in the dialog header opens this script's own
+  page, in the language of the interface, instead of the catalogue home
+  page. The URL in its tooltip follows the language too.
+- The README and the support knowledge base describe the network, external
+  program and storage behavior of the script, and state that the update
+  repository is signed with the CaeloWorks CPD identity.
 - Verified with PixInsight 1.9.5: no code change needed. The script does
   not read astrometric solutions, and the update package ships neither
   an `etc/` directory nor any file protected by the PixInsight
-  distribution.
+  distribution. The packaging tests now check every package entry against
+  the deployment directories allowed by the PixInsight Update Repository
+  Reference.
 
 ### Fixed
 - The README version badge showed 1.9.0 instead of 1.10.0.
@@ -171,7 +189,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   anti-quantization safeguards, color-coded results table and detailed
   console report. Includes the Python reference implementation.
 
-[Unreleased]: https://github.com/caelo-works/dark-frame-analyzer/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/caelo-works/dark-frame-analyzer/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.11.0
 [1.10.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.10.0
 [1.9.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.9.0
 [1.8.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.8.0

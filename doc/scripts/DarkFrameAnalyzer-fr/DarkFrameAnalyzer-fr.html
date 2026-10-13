@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+   <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+   <title>PixInsight Reference Documentation | DarkFrameAnalyzer-fr</title>
+   <meta name="keywords" content="darks, calibration, master dark, détection d'aberrants, pixels chauds, WBPP" />
+   <meta name="author" content="Caelo Works" />
+   <meta name="description" content="Analyse une série de darks et signale ceux qui ne vont pas avec lereste de la série, avant qu'ils n'entrent dans le master dark." />
+   <meta name="robots" content="INDEX,FOLLOW" />
+   <meta name="generator" content="PixInsight Documentation Compiler script version 1.7.4" />
+   <meta name="pidoc-document-class" content="PIScriptDoc" />
+   <script type="text/javascript" src="../../pidoc/scripts/pidoc-utility.js"></script>
+   <link type="text/css" href="../../pidoc/css/pidoc-common.css" rel="stylesheet" />
+   <link type="text/css" href="../../pidoc/css/pidoc-highlight.css" rel="stylesheet" />
+   <link type="text/css" href="../../pidoc/css/pidoc-tool.css" rel="stylesheet" />
+   <link rel="icon" href="../../pidoc/icons/pidoc-icon.svg" />
+</head>
+<body>
+<script type="text/javascript">
+   pidoc_generateDynamicContents();
+</script>
+
+<h1>DarkFrameAnalyzer-fr</h1>
+
+<div id="authors">
+<p>By Caelo Works</p>
+</div>
+
+<hr class="separator"/>
+
+<div id="brief">
+<p>Analyse une série de darks et signale ceux qui ne vont pas avec lereste de la série, avant qu'ils n'entrent dans le master dark. <a href="#__contents__">[more]</a></p></div>
+
+<div id="keywords">
+<p><strong>Keywords:</strong> darks, calibration, master dark, détection d'aberrants, pixels chauds, WBPP</p>
+</div>
+
+<h3 class="pidoc_sectionTitle" id="__toc__">Contents</h3>
+<p class="pidoc_sectionToggleButton" onclick="pidoc_toggleSection( 'toc', this );">[hide]</p>
+<div id="toc">
+<ul>
+<li class="pidoc_tocItem"><a href="#__Prsentation__">1&emsp;Présentation</a></li>
+<li class="pidoc_tocItem"><a href="#__Utilisation__">2&emsp;Utilisation</a>
+<ul>
+<li class="pidoc_tocSubitem"><a href="#__Utilisation_:_Ajouter_des_darks__">2.1&emsp;Ajouter des darks</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Utilisation_:_Seuils_de_dtection__">2.2&emsp;Seuils de détection</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Utilisation_:_Lancer_lanalyse__">2.3&emsp;Lancer l'analyse</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Utilisation_:_Lire_le_tableau_des_rsultats__">2.4&emsp;Lire le tableau des résultats</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Utilisation_:_Rapport_console__">2.5&emsp;Rapport console</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Utilisation_:_Export_CSV__">2.6&emsp;Export CSV</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Utilisation_:_Exclusions_WBPP__">2.7&emsp;Exclusions WBPP</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Utilisation_:_Langue_de_linterface__">2.8&emsp;Langue de l'interface</a></li>
+</ul>
+</li>
+<li class="pidoc_tocItem"><a href="#__Confidentialit_rseau_et_fichiers__">3&emsp;Confidentialité, réseau et fichiers</a>
+<ul>
+<li class="pidoc_tocSubitem"><a href="#__Confidentialit_rseau_et_fichiers_:_Rseau__">3.1&emsp;Réseau</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Confidentialit_rseau_et_fichiers_:_Programmes_externes__">3.2&emsp;Programmes externes</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Confidentialit_rseau_et_fichiers_:_Fichiers_crits_hors_de_linstallation_de_PixInsight__">3.3&emsp;Fichiers écrits hors de l'installation de PixInsight</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Confidentialit_rseau_et_fichiers_:_Rglages__">3.4&emsp;Réglages</a></li>
+</ul>
+</li>
+<li class="pidoc_tocItem"><a href="#__Prrequis_et_limites__">4&emsp;Prérequis et limites</a></li>
+</ul>
+</div>
+
+<div id="__contents__">
+
+<div class="pidoc_section" id="__Prsentation__">
+   <h3 class="pidoc_sectionTitle">1&emsp;Présentation</h3>
+   <p class="pidoc_sectionToggleButton" onclick="pidoc_toggleSection( 'Prsentation', this );">[hide]</p>
+   <div id="Prsentation">
+<p><a href="../DarkFrameAnalyzer/DarkFrameAnalyzer.html" title="../DarkFrameAnalyzer/DarkFrameAnalyzer.html">English version of this documentation</a></p>
+<p>Un master dark est la combinaison statistique d'une série de darksindividuels. Il suppose que toutes les images de la série décrivent le mêmecapteur, à la même température, avec le même temps de pose et les mêmesconditions de lecture. Une seule image qui rompt cette hypothèse, parce que lerefroidissement n'était pas stabilisé, parce qu'une fuite de lumière a atteintle capteur ou parce que la caméra a renvoyé une image corrompue, dégrade lemaster dark avec lequel toutes les images de lumière sont ensuite calibrées.</p>
+<p>Dark Frame Analyzer mesure chaque image d'une série et la compare à la sérieelle-même. Pour chaque dark, il calcule une médiane après réjection sigma, unedéviation absolue médiane (MAD) exacte tirée de l'histogramme 16 bits, lenombre de pixels chauds et saturés, l'écart entre la température de consigne etla température du capteur lue dans l'en-tête FITS, et le gradient entre lecentre de l'image et ses coins. Il classe ensuite chaque image comme valide, enalerte ou rejetée, et produit à la fois un tableau en couleur et un rapportdétaillé dans la console.</p>
+<p>Le script lit les images et ne les modifie jamais. Il n'écrit rien sans quevous le demandiez : voir <a href="#confidentialite">Confidentialité, réseau etfichiers</a> plus bas.</p>
+   </div>
+</div>
+
+<div class="pidoc_section" id="__Utilisation__">
+   <h3 class="pidoc_sectionTitle">2&emsp;Utilisation</h3>
+   <p class="pidoc_sectionToggleButton" onclick="pidoc_toggleSection( 'Utilisation', this );">[hide]</p>
+   <div id="Utilisation">
+<p>Le script est accessible par le menu<strong>Script &gt; CaeloWorks &gt; DarkFrameAnalyzer</strong> . La langue de l'interface sechoisit dans la liste <strong>Langue</strong> du dialogue ; les libellés ci-dessous sontceux de l'interface en français.</p>
+<div class="pidoc_subsection" id="__Utilisation_:_Ajouter_des_darks__">
+   <h4 class="pidoc_subsectionTitle">2.1&emsp;Ajouter des darks</h4>
+<p><strong>Darks</strong> ouvre un sélecteur de fichiers pour choisir des images individuelles,et <strong>Répertoire</strong> ajoute tous les darks trouvés dans un répertoire. Les formatsFITS (<span class="pidoc_code">.fits</span>, <span class="pidoc_code">.fit</span>, <span class="pidoc_code">.fts</span>) et XISF (<span class="pidoc_code">.xisf</span>) sontacceptés, en majuscules comme en minuscules. <strong>Supprimer</strong> retire les lignessélectionnées et <strong>Tout vider</strong> vide la liste.</p>
+<p>Ajoutez toutes les images d'une même série en une fois : la partie statistiquede la détection compare chaque image aux autres, donc une liste qui mélangedeux séries, ou deux températures, produit des alertes sans signification.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Utilisation_:_Seuils_de_dtection__">
+   <h4 class="pidoc_subsectionTitle">2.2&emsp;Seuils de détection</h4>
+<p>Le panneau <strong>Seuils de détection</strong> regroupe deux types de critères, tousdeux appliqués à chaque image.</p>
+
+<ul class="pidoc_list">
+<li>Les <strong>critères absolus</strong> comparent une image à une valeur fixe : l'écartmaximal entre la température de consigne et la température du capteur, endegrés Celsius ; le niveau en ADU au-dessus duquel un pixel compte commechaud ; le nombre maximal de pixels saturés toléré par image ; et le gradientmaximal, en ADU, entre le centre et les coins de l'image. Ils ne dépendent pasdu reste de la série.</li>
+<li class="pidoc_spaced_list_item">Les <strong>critères statistiques</strong> comparent une image à sa série : unesensibilité en sigma pour la médiane, le bruit, le nombre de pixels chauds etl'uniformité, ainsi que les écarts absolus, en ADU, au-delà desquels un écartde la médiane ou du bruit devient une alerte ou un rejet. Ils demandent aumoins trois images lisibles ; en dessous, le script indique que la détectionstatistique a été ignorée et n'applique que les critères absolus.</li>
+</ul>
+
+<p>Les seuils sont conservés d'une session à l'autre. <strong>Défauts</strong> rétablit lesvaleurs d'origine du script, calibrées pour les capteurs de la classe IMX585.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Utilisation_:_Lancer_lanalyse__">
+   <h4 class="pidoc_subsectionTitle">2.3&emsp;Lancer l'analyse</h4>
+<p><strong>Analyser</strong> mesure chaque image de la liste. L'interface est verrouilléependant l'analyse, et <strong>Annuler</strong> l'interrompt : les images déjà mesurées sontconservées, et la console indique combien d'images ont été traitées sur letotal.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Utilisation_:_Lire_le_tableau_des_rsultats__">
+   <h4 class="pidoc_subsectionTitle">2.4&emsp;Lire le tableau des résultats</h4>
+
+<table class="pidoc_table">
+<caption><a id="__table_1__"></a>
+<span class="pidoc_table_title">Table 1</span></caption>
+<tr>
+<th><p>Colonne</p>
+</th>
+<th><p>Contenu</p>
+</th>
+</tr>
+<tr>
+<td><p><strong>&#35;</strong></p>
+</td>
+<td><p>Position de l'image dans la liste.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Fichier</strong></p>
+</td>
+<td><p>Nom du fichier de l'image.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Temp.</strong></p>
+</td>
+<td><p>Température du capteur lue dans l'en-tête FITS, en degrés Celsius.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Médiane</strong></p>
+</td>
+<td><p>Médiane de l'image après réjection sigma, en ADU : son signal thermique.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Bruit</strong></p>
+</td>
+<td><p>Déviation absolue médiane de l'image, en ADU : son bruit de lecture.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Hot px</strong></p>
+</td>
+<td><p>Nombre de pixels au-dessus du seuil de pixels chauds.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Sat.</strong></p>
+</td>
+<td><p>Nombre de pixels saturés.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>&Delta; coins</strong></p>
+</td>
+<td><p>Différence entre la médiane du centre de l'image et celle de ses coins, en ADU : amp glow, fuites de lumière et autres gradients spatiaux.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Etat</strong></p>
+</td>
+<td><p><strong>Valide,</strong> <strong>Alerte,</strong> <strong>Rejet,</strong> ou <strong>Erreur</strong> quand l'image n'a pas pu être lue.</p>
+</td>
+</tr>
+</table>
+
+<p>Une ligne en <strong>Alerte</strong> s'écarte de la série sans être inutilisable : regardez-laet décidez. Une ligne en <strong>Rejet</strong> doit être écartée de l'empilement. Un clicsur un en-tête de colonne trie le tableau ; les colonnes <strong>Temp.</strong> et<strong>&Delta; coins</strong> sont triées comme du texte, parce qu'elles portent unsigne : utilisez l'export CSV quand l'ordre de ces deux colonnes compte.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Utilisation_:_Rapport_console__">
+   <h4 class="pidoc_subsectionTitle">2.5&emsp;Rapport console</h4>
+<p>La console reçoit un tableau des mesures de chaque image, les valeurs deréférence calculées pour la série, la raison pour laquelle chaque image a étésignalée, et un résumé des images valides, en alerte et rejetées. C'est latrace complète de l'analyse, et elle se copie hors de PixInsight comme dutexte brut.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Utilisation_:_Export_CSV__">
+   <h4 class="pidoc_subsectionTitle">2.6&emsp;Export CSV</h4>
+<p><strong>Exporter CSV...</strong> écrit toutes les mesures de la dernière analyse dans unfichier CSV, à l'emplacement choisi dans une boîte d'enregistrement. Lesen-têtes sont des identifiants anglais fixes, quelle que soit la langue del'interface, pour que le fichier reste lisible par d'autres outils.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Utilisation_:_Exclusions_WBPP__">
+   <h4 class="pidoc_subsectionTitle">2.7&emsp;Exclusions WBPP</h4>
+<p><strong>Exclusions WBPP...</strong> ouvre la liste des images à écarter de l'empilement :les images rejetées, et aussi celles en alerte quand<strong>Inclure les alertes</strong> est coché. Depuis ce dialogue,<strong>Exporter .txt...</strong> écrit la liste dans un fichier texte, un chemin parligne, à l'emplacement de votre choix, et <strong>Déplacer vers rejected/...</strong>déplace les images listées dans un sous-répertoire <span class="pidoc_code">rejected</span> créé à côtéd'elles, pour que WBPP ne les voie plus. Le déplacement demande d'abord uneconfirmation, et les images sont déplacées, jamais supprimées.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Utilisation_:_Langue_de_linterface__">
+   <h4 class="pidoc_subsectionTitle">2.8&emsp;Langue de l'interface</h4>
+<p>L'interface existe en anglais et en français, au choix dans la liste<strong>Langue</strong> du dialogue. Le choix est conservé d'une session à l'autre. Lesen-têtes de l'export CSV ne changent pas.</p>
+</div>
+
+   </div>
+</div>
+
+<div class="pidoc_section" id="__Confidentialit_rseau_et_fichiers__">
+   <h3 class="pidoc_sectionTitle">3&emsp;<a id="confidentialite"></a>Confidentialité, réseau et fichiers</h3>
+   <p class="pidoc_sectionToggleButton" onclick="pidoc_toggleSection( 'Confidentialit_rseau_et_fichiers', this );">[hide]</p>
+   <div id="Confidentialit_rseau_et_fichiers">
+<div class="pidoc_subsection" id="__Confidentialit_rseau_et_fichiers_:_Rseau__">
+   <h4 class="pidoc_subsectionTitle">3.1&emsp;Réseau</h4>
+<p>Le script n'établit aucune connexion réseau de lui-même. Il ne télécharge rien,n'envoie rien et ne contient aucune télémétrie : rien n'est mesuré, compté outransmis à votre sujet ni au sujet de vos images.</p>
+<p>Une seule action fait intervenir le réseau, et uniquement à votre demande : unclic sur la ligne <em>by CaeloWorks</em> de l'en-tête du dialogue ouvre la pagede ce script sur le site du développeur,<a href="https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer" title="https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer">pixinsight-scripts.caelo.works</a> , dans le navigateur web configuré survotre système. L'URL complète est affichée dans l'infobulle de cette ligneavant le clic, et suit la langue de l'interface.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Confidentialit_rseau_et_fichiers_:_Programmes_externes__">
+   <h4 class="pidoc_subsectionTitle">3.2&emsp;Programmes externes</h4>
+<p>Pour ouvrir cette page, et seulement dans ce cas, le script demande à votresystème d'exploitation d'ouvrir l'URL avec votre navigateur par défaut. Ilexécute <span class="pidoc_code">cmd /c start</span> sous Windows, <span class="pidoc_code">/usr/bin/open</span> sous macOS et<span class="pidoc_code">xdg-open</span> sous Linux, avec l'URL pour seul argument. Aucun autreprogramme n'est jamais lancé, aucun programme n'est distribué avec le script,et rien n'est lancé sans un clic explicite de votre part.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Confidentialit_rseau_et_fichiers_:_Fichiers_crits_hors_de_linstallation_de_PixInsight__">
+   <h4 class="pidoc_subsectionTitle">3.3&emsp;Fichiers écrits hors de l'installation de PixInsight</h4>
+<p>Le script n'écrit jamais dans l'installation de PixInsight et ne modifiejamais vos darks. Hors de l'installation, il n'écrit que sur une actionexplicite, et uniquement là où vous le lui indiquez :</p>
+
+<ul class="pidoc_list">
+<li>Le <strong>rapport CSV</strong> de l'analyse, au chemin choisi dans la boîted'enregistrement de <strong>Exporter CSV...</strong> .</li>
+<li class="pidoc_spaced_list_item">La <strong>liste d'exclusion</strong> , un fichier <span class="pidoc_code">.txt</span> , au chemin choisi dansla boîte d'enregistrement du dialogue <strong>Exclusions WBPP...</strong> .</li>
+<li class="pidoc_spaced_list_item">Un <strong>sous-répertoire <span class="pidoc_code">rejected</span></strong> à côté des images à écarter, créé par<strong>Déplacer vers rejected/...</strong> dans ce même dialogue, après confirmation.Les images rejetées y sont déplacées ; aucun fichier n'est supprimé.</li>
+</ul>
+
+</div>
+
+<div class="pidoc_subsection" id="__Confidentialit_rseau_et_fichiers_:_Rglages__">
+   <h4 class="pidoc_subsectionTitle">3.4&emsp;Réglages</h4>
+<p>Les seuils de détection et la langue de l'interface sont enregistrés vial'interface de réglages de PixInsight, sous la clé <span class="pidoc_code">DarkFrameAnalyzer</span> desréglages de l'application. Le script n'y lit et n'y écrit rien d'autre, et netouche à aucun réglage appartenant à PixInsight ou à un autre produit.</p>
+</div>
+
+   </div>
+</div>
+
+<div class="pidoc_section" id="__Prrequis_et_limites__">
+   <h3 class="pidoc_sectionTitle">4&emsp;Prérequis et limites</h3>
+   <p class="pidoc_sectionToggleButton" onclick="pidoc_toggleSection( 'Prrequis_et_limites', this );">[hide]</p>
+   <div id="Prrequis_et_limites">
+
+<ul class="pidoc_list">
+<li>PixInsight 1.9.0 ou plus récent, sous Windows, macOS et Linux.</li>
+<li class="pidoc_spaced_list_item">Darks FITS (<span class="pidoc_code">.fits</span>, <span class="pidoc_code">.fit</span>, <span class="pidoc_code">.fts</span>) et XISF(<span class="pidoc_code">.xisf</span>).</li>
+<li class="pidoc_spaced_list_item">La température du capteur et la consigne sont lues dans l'en-tête FITS. Uneimage dont l'en-tête ne porte ni l'une ni l'autre ne peut pas être contrôléeen dérive thermique.</li>
+<li class="pidoc_spaced_list_item">Les critères statistiques demandent au moins trois images lisibles. Endessous, le script le signale explicitement et n'applique que les critèresabsolus.</li>
+<li class="pidoc_spaced_list_item">Les colonnes <strong>Temp.</strong> et <strong>&Delta; coins</strong> du tableau sont triées commedu texte, car aucune forme lisible d'un nombre signé ne se trie correctementcomme du texte dans un tableau PixInsight. Utilisez l'export CSV pour ordonnerune série selon ces deux mesures.</li>
+</ul>
+
+   </div>
+</div>
+
+<hr class="separator"/>
+
+<div id="copyright">
+   <p>Copyright &copy; 2026 Caelo Works</p>
+</div>
+
+<div id="footer">
+   <p>Generated by the PixInsight Documentation Compiler script version 1.7.4 on 2026-10-13 15:10:23 UTC</p>
+</div>
+<br/>
+<br/>
+
+</div> <!-- contents -->
+
+</body>
+</html>
