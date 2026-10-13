@@ -4,7 +4,7 @@
 
 ### Analyze your dark frame series and reject out-of-spec frames before WBPP integration
 
-[![Version](https://img.shields.io/badge/version-1.10.0-22d3ee?style=for-the-badge&labelColor=0f172a)](https://github.com/caelo-works/dark-frame-analyzer/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.11.0-22d3ee?style=for-the-badge&labelColor=0f172a)](https://github.com/caelo-works/dark-frame-analyzer/releases/latest)
 [![PixInsight](https://img.shields.io/badge/PixInsight-%E2%89%A5%201.9.0-67e8f9?style=for-the-badge&labelColor=0f172a)](https://pixinsight.com/)
 [![Status](https://img.shields.io/badge/status-stable-34d399?style=for-the-badge&labelColor=0f172a)](https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer)
 [![License](https://img.shields.io/badge/license-GPL--3.0-94a3b8?style=for-the-badge&labelColor=0f172a)](LICENSE)
@@ -57,8 +57,8 @@ In PixInsight, open **Resources → Updates → Manage Repositories** and add
 **Resources → Updates → Check for Updates**, accept the install and restart.
 Updates are then delivered automatically through the same channel.
 
-> The repository is not CPD-signed yet, so PixInsight shows an
-> "unsigned repository" warning; signing is underway.
+> The update repository is signed with the CaeloWorks Certified PixInsight
+> Developer identity, which PixInsight verifies before installing anything.
 
 ### Manual install
 
@@ -76,6 +76,38 @@ folder containing the file. Alternatively, run it once via
 2. Adjust the detection thresholds if needed (defaults are calibrated for IMX585-class sensors and persist across sessions).
 3. Click **Analyze**: each frame is classified **Valid** / **Alert** / **Rejected**, with the reasons in the status tooltip and the full report in the process console.
 4. Export the **CSV** for your records, and use **WBPP exclusions…** to keep the flagged frames out of integration.
+
+The complete documentation, in English and French, is installed with the
+script by the update repository and integrated in the PixInsight reference
+documentation.
+
+## Privacy, network and files
+
+- **No network connection, no telemetry.** The script downloads nothing,
+  sends nothing, and collects no personal or usage data.
+- **One external program, on an explicit click only.** Clicking the
+  *by CaeloWorks* line in the dialog header opens this script's page on the
+  developer website in your default web browser —
+  `https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer`
+  with the English interface, or
+  `https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer`
+  with the French one. The URL is shown in the tooltip before you click.
+  To open it, the script runs `cmd /c start` on Windows, `/usr/bin/open` on
+  macOS and `xdg-open` on Linux, with the URL as its only argument. No other
+  program is ever launched.
+- **Files written outside the PixInsight installation**, only on your
+  explicit action and only where you choose:
+  - the CSV report (**Export CSV…**);
+  - the `.txt` exclusion list (**WBPP exclusions… → Export .txt…**);
+  - a `rejected/` subdirectory created next to your darks, into which
+    **Move to rejected/…** moves the excluded frames after a confirmation.
+    Frames are moved, never deleted.
+- **Settings:** the detection thresholds and the interface language are
+  stored through PixInsight's settings interface, under the
+  `DarkFrameAnalyzer` key.
+
+The script never writes inside the PixInsight installation and never
+modifies your dark frames.
 
 ## Development
 
@@ -111,7 +143,7 @@ This produces two files under `dist/`:
   `src/scripts/CaeloWorks/DarkFrameAnalyzer/` plus its icon, shipped both
   next to the script (dialog header emblem) and under
   `rsc/icons/script/DarkFrameAnalyzer/` (the `#feature-icon` location for
-  menus). The archive is reproducible on a given build environment (fixed
+  menus), and the documentation pages under `doc/scripts/`. The archive is reproducible on a given build environment (fixed
   entry order, mtimes, permissions, line endings and creator system):
   rebuilt there, its sha1 only changes when the content changes.
 - **`update-package.json`** — the metadata contract for the site: name,
@@ -122,31 +154,25 @@ The version is read from the `#define VERSION` line of
 `DarkFrameAnalyzer.js` (single source of truth); the build fails if the
 version passed as argument doesn't match.
 
+The documentation pages are compiled from the PIDoc sources in
+`docs/pidoc/` by PixInsight's Documentation Compiler, driven from the
+command line (PixInsight must be closed):
+
+```bash
+scripts/build-script-doc.sh
+```
+
+The compiled pages are versioned under `doc/scripts/` and shipped as they
+are, so building the package never needs PixInsight: recompile and commit
+them together with every change to a `.pidoc` source. `tests/packaging.sh`
+checks that every entry of the package sits in a deployment directory
+allowed by the PixInsight Update Repository Reference, that no `etc/` tree
+nor file of the PixInsight distribution ships, and that the integrated
+documentation page is present.
+
 **Every GitHub release must attach three assets:** `DarkFrameAnalyzer.js`,
 the versioned zip and `update-package.json` — and move the corresponding
 `CHANGELOG.md` entries out of *Unreleased*.
-
-### Code signing (not enabled yet)
-
-Once the CaeloWorks CPD identity is validated by Pleiades Astrophoto,
-releases will be signed by pointing the build at the key file:
-
-```bash
-XSSK_PATH=/path/to/key.xssk scripts/build-update-package.sh <version>
-```
-
-The key password is prompted on the terminal and handed to PixInsight as
-a command-scoped environment variable — the build never writes it to a
-file, a log or a command line, and none of its other child processes see
-it. Presetting `XSSK_PASS` in the environment skips the prompt (for
-automation): the build un-exports it immediately, but the value then
-lives in *your* shell history or CI configuration before reaching it.
-Signing runs inside a local PixInsight installation and adds the `.xsgn`
-next to the script in the zip. A signed zip is not byte-reproducible
-across signings (the signature is timestamped): each signing produces a
-new sha1, which the update repository re-ingests. **Until the identity is
-validated, releases stay unsigned on purpose** — an unverifiable
-signature is worse for users than the dismissable "unsigned" warning.
 
 ## Links
 

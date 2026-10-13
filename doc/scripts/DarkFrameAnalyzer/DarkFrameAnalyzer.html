@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+   <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+   <title>PixInsight Reference Documentation | DarkFrameAnalyzer</title>
+   <meta name="keywords" content="dark frames, calibration, master dark, outlier detection, hot pixels, WBPP" />
+   <meta name="author" content="Caelo Works" />
+   <meta name="description" content="Analyzes a series of dark frames and flags the ones that do notbelong with the rest of the series, before they reach the master dark." />
+   <meta name="robots" content="INDEX,FOLLOW" />
+   <meta name="generator" content="PixInsight Documentation Compiler script version 1.7.4" />
+   <meta name="pidoc-document-class" content="PIScriptDoc" />
+   <script type="text/javascript" src="../../pidoc/scripts/pidoc-utility.js"></script>
+   <link type="text/css" href="../../pidoc/css/pidoc-common.css" rel="stylesheet" />
+   <link type="text/css" href="../../pidoc/css/pidoc-highlight.css" rel="stylesheet" />
+   <link type="text/css" href="../../pidoc/css/pidoc-tool.css" rel="stylesheet" />
+   <link rel="icon" href="../../pidoc/icons/pidoc-icon.svg" />
+</head>
+<body>
+<script type="text/javascript">
+   pidoc_generateDynamicContents();
+</script>
+
+<h1>DarkFrameAnalyzer</h1>
+
+<div id="authors">
+<p>By Caelo Works</p>
+</div>
+
+<hr class="separator"/>
+
+<div id="brief">
+<p>Analyzes a series of dark frames and flags the ones that do notbelong with the rest of the series, before they reach the master dark. <a href="#__contents__">[more]</a></p></div>
+
+<div id="keywords">
+<p><strong>Keywords:</strong> dark frames, calibration, master dark, outlier detection, hot pixels, WBPP</p>
+</div>
+
+<h3 class="pidoc_sectionTitle" id="__toc__">Contents</h3>
+<p class="pidoc_sectionToggleButton" onclick="pidoc_toggleSection( 'toc', this );">[hide]</p>
+<div id="toc">
+<ul>
+<li class="pidoc_tocItem"><a href="#__Description__">1&emsp;Description</a></li>
+<li class="pidoc_tocItem"><a href="#__Usage__">2&emsp;Usage</a>
+<ul>
+<li class="pidoc_tocSubitem"><a href="#__Usage_:_Adding_dark_frames__">2.1&emsp;Adding dark frames</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Usage_:_Detection_thresholds__">2.2&emsp;Detection thresholds</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Usage_:_Running_the_analysis__">2.3&emsp;Running the analysis</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Usage_:_Reading_the_results_table__">2.4&emsp;Reading the results table</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Usage_:_Console_report__">2.5&emsp;Console report</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Usage_:_CSV_export__">2.6&emsp;CSV export</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Usage_:_WBPP_exclusions__">2.7&emsp;WBPP exclusions</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Usage_:_Interface_language__">2.8&emsp;Interface language</a></li>
+</ul>
+</li>
+<li class="pidoc_tocItem"><a href="#__Privacy_network_and_files__">3&emsp;Privacy, network and files</a>
+<ul>
+<li class="pidoc_tocSubitem"><a href="#__Privacy_network_and_files_:_Network__">3.1&emsp;Network</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Privacy_network_and_files_:_External_programs__">3.2&emsp;External programs</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Privacy_network_and_files_:_Files_written_outside_the_PixInsight_installation__">3.3&emsp;Files written outside the PixInsight installation</a></li>
+<li class="pidoc_tocSubitem"><a href="#__Privacy_network_and_files_:_Settings__">3.4&emsp;Settings</a></li>
+</ul>
+</li>
+<li class="pidoc_tocItem"><a href="#__Requirements_and_limitations__">4&emsp;Requirements and limitations</a></li>
+</ul>
+</div>
+
+<div id="__contents__">
+
+<div class="pidoc_section" id="__Description__">
+   <h3 class="pidoc_sectionTitle">1&emsp;Description</h3>
+   <p class="pidoc_sectionToggleButton" onclick="pidoc_toggleSection( 'Description', this );">[hide]</p>
+   <div id="Description">
+<p><a href="../DarkFrameAnalyzer-fr/DarkFrameAnalyzer-fr.html" title="../DarkFrameAnalyzer-fr/DarkFrameAnalyzer-fr.html">Version française de cette documentation</a></p>
+<p>A master dark is a statistical combination of a series of individual darks.It assumes that all the frames of the series describe the same sensor, at thesame temperature, with the same exposure time and the same read conditions. Asingle frame that breaks this assumption, because the cooling had not settled,because a light leak reached the sensor, or because the camera returned acorrupt frame, degrades the master dark that every light frame is thencalibrated with.</p>
+<p>Dark Frame Analyzer measures each frame of a series and compares it with theseries itself. For every dark it computes a sigma-clipped median, an exactmedian absolute deviation derived from the 16-bit histogram, the number of hotand saturated pixels, the deviation between the temperature setpoint and thesensor temperature read from the FITS header, and the gradient between thecenter of the frame and its corners. It then classifies every frame as valid,as an alert, or as rejected, and reports both a color-coded table and adetailed console report.</p>
+<p>The script reads the frames, and never modifies them. It writes nothing unlessyou ask for it: see <a href="#privacy">Privacy, network and files</a> below.</p>
+   </div>
+</div>
+
+<div class="pidoc_section" id="__Usage__">
+   <h3 class="pidoc_sectionTitle">2&emsp;Usage</h3>
+   <p class="pidoc_sectionToggleButton" onclick="pidoc_toggleSection( 'Usage', this );">[hide]</p>
+   <div id="Usage">
+<p>The script is available from the <strong>Script &gt; CaeloWorks &gt; DarkFrameAnalyzer</strong>menu item.</p>
+<div class="pidoc_subsection" id="__Usage_:_Adding_dark_frames__">
+   <h4 class="pidoc_subsectionTitle">2.1&emsp;Adding dark frames</h4>
+<p><strong>Darks</strong> opens a file dialog to select individual frames, and <strong>Directory</strong>adds every dark found in a directory. FITS (<span class="pidoc_code">.fits</span>, <span class="pidoc_code">.fit</span>, <span class="pidoc_code">.fts</span>) andXISF (<span class="pidoc_code">.xisf</span>) frames are accepted, in uppercase or lowercase. <strong>Remove</strong>drops the selected rows and <strong>Clear all</strong> empties the list.</p>
+<p>All the frames of one series should be added at once: the statistical part ofthe detection compares each frame with the others, so a list that mixes twodifferent series, or two temperatures, produces meaningless alerts.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Usage_:_Detection_thresholds__">
+   <h4 class="pidoc_subsectionTitle">2.2&emsp;Detection thresholds</h4>
+<p>The <strong>Detection thresholds</strong> panel holds two kinds of criterion, and bothare applied to every frame.</p>
+
+<ul class="pidoc_list">
+<li><strong>Absolute criteria</strong> compare a frame with a fixed value: the maximumdeviation between the temperature setpoint and the sensor temperature, indegrees Celsius; the ADU level above which a pixel counts as hot; the maximumnumber of saturated pixels tolerated per frame; and the maximum gradient, inADU, between the center and the corners of the frame. They do not depend onthe rest of the series.</li>
+<li class="pidoc_spaced_list_item"><strong>Statistical criteria</strong> compare a frame with its series: a sensitivityin sigma units for the median, the noise, the hot pixel count and theuniformity, plus the absolute deviations, in ADU, above which a deviation ofthe median or of the noise becomes an alert or a rejection. They need at leastthree readable frames; below that, the script reports that the statisticaldetection has been skipped, and applies the absolute criteria only.</li>
+</ul>
+
+<p>The thresholds persist across sessions. <strong>Defaults</strong> restores the valuescalibrated for IMX585-class sensors that the script ships with.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Usage_:_Running_the_analysis__">
+   <h4 class="pidoc_subsectionTitle">2.3&emsp;Running the analysis</h4>
+<p><strong>Analyze</strong> measures every frame of the list. The interface is locked while theanalysis runs, and <strong>Cancel</strong> interrupts it: the frames already measured arekept, and the console reports how many frames were processed out of the total.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Usage_:_Reading_the_results_table__">
+   <h4 class="pidoc_subsectionTitle">2.4&emsp;Reading the results table</h4>
+
+<table class="pidoc_table">
+<caption><a id="__table_1__"></a>
+<span class="pidoc_table_title">Table 1</span></caption>
+<tr>
+<th><p>Column</p>
+</th>
+<th><p>Contents</p>
+</th>
+</tr>
+<tr>
+<td><p><strong>&#35;</strong></p>
+</td>
+<td><p>Position of the frame in the list.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>File</strong></p>
+</td>
+<td><p>File name of the frame.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Temp.</strong></p>
+</td>
+<td><p>Sensor temperature read from the FITS header, in degrees Celsius.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Median</strong></p>
+</td>
+<td><p>Sigma-clipped median of the frame, in ADU: its thermal signal.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Noise</strong></p>
+</td>
+<td><p>Median absolute deviation of the frame, in ADU: its read noise.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Hot px</strong></p>
+</td>
+<td><p>Number of pixels above the hot pixel threshold.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Sat.</strong></p>
+</td>
+<td><p>Number of saturated pixels.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>&Delta; corn.</strong></p>
+</td>
+<td><p>Difference between the median of the center of the frame and the median of its corners, in ADU: amp glow, light leaks and other spatial gradients.</p>
+</td>
+</tr>
+<tr>
+<td><p><strong>Status</strong></p>
+</td>
+<td><p><strong>Valid,</strong> <strong>Alert,</strong> <strong>Rejected,</strong> or <strong>Error</strong> when the frame could not be read.</p>
+</td>
+</tr>
+</table>
+
+<p>A row marked <strong>Alert</strong> deviates from the series without being unusable: look atit, and decide. A row marked <strong>Rejected</strong> should be kept out of theintegration. Clicking a column header sorts the table; the <strong>Temp.</strong> and<strong>&Delta; corn.</strong> columns are sorted as text, because they carry a sign, souse the CSV export when the order of those two columns matters.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Usage_:_Console_report__">
+   <h4 class="pidoc_subsectionTitle">2.5&emsp;Console report</h4>
+<p>The console receives a table of the per-frame metrics, the reference valuescomputed for the series, the reason why each frame has been flagged, and asummary of the valid, alerted and rejected frames. It is the complete recordof the analysis, and it can be copied out of PixInsight as plain text.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Usage_:_CSV_export__">
+   <h4 class="pidoc_subsectionTitle">2.6&emsp;CSV export</h4>
+<p><strong>Export CSV...</strong> writes every metric of the last analysis to a CSV file,at the location you choose in a save dialog. The headers are fixed Englishidentifiers, whatever the language of the interface, so that the file can beread by other tools.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Usage_:_WBPP_exclusions__">
+   <h4 class="pidoc_subsectionTitle">2.7&emsp;WBPP exclusions</h4>
+<p><strong>WBPP exclusions...</strong> opens the list of the frames that should be kept outof the integration: the rejected frames, and also the alerted ones when<strong>Include alerts</strong> is checked. From that dialog, <strong>Export .txt...</strong>writes the list to a text file, one path per line, at a location you choose,and <strong>Move to rejected/...</strong> moves the listed frames to a <span class="pidoc_code">rejected</span>subdirectory created next to them, so that WBPP no longer sees them. The moveasks for a confirmation first, and the frames are moved, never deleted.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Usage_:_Interface_language__">
+   <h4 class="pidoc_subsectionTitle">2.8&emsp;Interface language</h4>
+<p>The interface is available in English and French, selected from the languagelist of the dialog. The choice persists across sessions. The headers of theCSV export are unaffected.</p>
+</div>
+
+   </div>
+</div>
+
+<div class="pidoc_section" id="__Privacy_network_and_files__">
+   <h3 class="pidoc_sectionTitle">3&emsp;<a id="privacy"></a>Privacy, network and files</h3>
+   <p class="pidoc_sectionToggleButton" onclick="pidoc_toggleSection( 'Privacy_network_and_files', this );">[hide]</p>
+   <div id="Privacy_network_and_files">
+<div class="pidoc_subsection" id="__Privacy_network_and_files_:_Network__">
+   <h4 class="pidoc_subsectionTitle">3.1&emsp;Network</h4>
+<p>The script makes no network connection of its own. It downloads nothing,uploads nothing, and contains no telemetry: nothing is measured, counted ortransmitted about you or about your frames.</p>
+<p>One action involves the network, and only when you ask for it: clicking the<em>by CaeloWorks</em> line in the header of the dialog opens the page of thisscript on the developer website, at<a href="https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer" title="https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer">pixinsight-scripts.caelo.works</a>, in the web browser configured on yoursystem. The full URL is shown in the tooltip of that line before you click it,and follows the language of the interface.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Privacy_network_and_files_:_External_programs__">
+   <h4 class="pidoc_subsectionTitle">3.2&emsp;External programs</h4>
+<p>To open that page, and only then, the script asks your operating system toopen the URL with your default web browser. It runs <span class="pidoc_code">cmd /c start</span> onWindows, <span class="pidoc_code">/usr/bin/open</span> on macOS and <span class="pidoc_code">xdg-open</span> on Linux, with the URL asits only argument. No other program is ever launched, no program isdistributed with the script, and nothing is launched without an explicit clickfrom you.</p>
+</div>
+
+<div class="pidoc_subsection" id="__Privacy_network_and_files_:_Files_written_outside_the_PixInsight_installation__">
+   <h4 class="pidoc_subsectionTitle">3.3&emsp;Files written outside the PixInsight installation</h4>
+<p>The script never writes inside the PixInsight installation, and never modifiesyour dark frames. Outside the installation it writes only on an explicitaction, and only where you tell it to:</p>
+
+<ul class="pidoc_list">
+<li>The <strong>CSV report</strong> of the analysis, at the path selected in the savedialog of <strong>Export CSV...</strong> .</li>
+<li class="pidoc_spaced_list_item">The <strong>exclusion list</strong> , a <span class="pidoc_code">.txt</span> file, at the path selected in the savedialog of the <strong>WBPP exclusions...</strong> dialog.</li>
+<li class="pidoc_spaced_list_item">A <strong><span class="pidoc_code">rejected</span> subdirectory</strong> next to the frames to exclude, created by<strong>Move to rejected/...</strong> in that same dialog, after a confirmation.The rejected frames are moved into it; no file is deleted.</li>
+</ul>
+
+</div>
+
+<div class="pidoc_subsection" id="__Privacy_network_and_files_:_Settings__">
+   <h4 class="pidoc_subsectionTitle">3.4&emsp;Settings</h4>
+<p>The detection thresholds and the language of the interface are stored throughthe settings interface of PixInsight, under the <span class="pidoc_code">DarkFrameAnalyzer</span> key ofthe settings of the application. The script reads and writes nothing elsethere, and touches no setting belonging to PixInsight or to another product.</p>
+</div>
+
+   </div>
+</div>
+
+<div class="pidoc_section" id="__Requirements_and_limitations__">
+   <h3 class="pidoc_sectionTitle">4&emsp;Requirements and limitations</h3>
+   <p class="pidoc_sectionToggleButton" onclick="pidoc_toggleSection( 'Requirements_and_limitations', this );">[hide]</p>
+   <div id="Requirements_and_limitations">
+
+<ul class="pidoc_list">
+<li>PixInsight 1.9.0 or newer, on Windows, macOS and Linux.</li>
+<li class="pidoc_spaced_list_item">FITS (<span class="pidoc_code">.fits</span>, <span class="pidoc_code">.fit</span>, <span class="pidoc_code">.fts</span>) and XISF (<span class="pidoc_code">.xisf</span>) dark frames.</li>
+<li class="pidoc_spaced_list_item">The sensor temperature and the setpoint are read from the FITS header. Aframe whose header carries neither cannot be checked for thermal drift.</li>
+<li class="pidoc_spaced_list_item">The statistical criteria need at least three readable frames. With fewer,the script says so explicitly and applies the absolute criteria only.</li>
+<li class="pidoc_spaced_list_item">The <strong>Temp.</strong> and <strong>&Delta; corn.</strong> columns of the table are sorted astext, because no readable form of a signed number sorts correctly as text in aPixInsight tree box. Use the CSV export to order a series on those twometrics.</li>
+</ul>
+
+   </div>
+</div>
+
+<hr class="separator"/>
+
+<div id="copyright">
+   <p>Copyright &copy; 2026 Caelo Works</p>
+</div>
+
+<div id="footer">
+   <p>Generated by the PixInsight Documentation Compiler script version 1.7.4 on 2026-10-13 15:10:23 UTC</p>
+</div>
+<br/>
+<br/>
+
+</div> <!-- contents -->
+
+</body>
+</html>

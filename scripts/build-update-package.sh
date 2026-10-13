@@ -14,6 +14,13 @@
 #           src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.xsgn
 #                                                        (signed builds only)
 #           rsc/icons/script/DarkFrameAnalyzer/DarkFrameAnalyzer.svg
+#           doc/scripts/DarkFrameAnalyzer/DarkFrameAnalyzer.html
+#           doc/scripts/DarkFrameAnalyzer-fr/DarkFrameAnalyzer-fr.html
+#       The documentation pages are compiled from docs/pidoc/ by
+#       scripts/build-script-doc.sh and versioned under doc/scripts/: they
+#       ship as they are, so this build never needs PixInsight for them.
+#       PixInsight integrates the page named after #feature-id; the French
+#       page sits next to it and both link to each other.
 #       The icon ships twice: the rsc/ copy backs the #feature-icon
 #       directive (@script_icons_dir), the copy next to the script backs
 #       the dialog header emblem. Contains ONLY what must be installed
@@ -93,6 +100,9 @@ DIST_DIR="$REPO_ROOT/dist"
 STAGE_DIR="$DIST_DIR/stage"
 INSTALL_PATH="src/scripts/CaeloWorks/DarkFrameAnalyzer"
 ICONS_PATH="rsc/icons/script/DarkFrameAnalyzer"
+DOC_SRC_DIR="$REPO_ROOT/doc/scripts"
+DOC_PATH="doc/scripts"
+DOC_PAGES="DarkFrameAnalyzer DarkFrameAnalyzer-fr"
 
 # --- Version and title: single source of truth is the #define lines ------
 # The 'q' stops at the first match: a stray second #define would otherwise
@@ -262,17 +272,29 @@ else
    echo "      Set XSSK_PATH=/path/to/key.xssk to enable code signing."
 fi
 
+# --- Compiled documentation pages ------------------------------------------
+for page in $DOC_PAGES; do
+   if [ ! -f "$DOC_SRC_DIR/$page/$page.html" ]; then
+      echo "ERROR: documentation page not found: doc/scripts/$page/$page.html" >&2
+      echo "       (run scripts/build-script-doc.sh and commit its output)" >&2
+      exit 1
+   fi
+done
+
 # --- Reproducible zip ------------------------------------------------------
 # Built through Python's zipfile: entries are written in a fixed (sorted)
 # order with a constant timestamp and fixed permissions, so identical
 # content always yields an identical archive (stable sha1). Only the
 # expected files may ship: anything else in the stage is a hard error.
 # The icon is written twice: next to the script (dialog header emblem) and
-# under rsc/icons (the #feature-icon @script_icons_dir location).
-python3 - "$STAGE_DIR" "$DIST_DIR/$ZIP_NAME" "$INSTALL_PATH" "$ICONS_PATH" <<'PYEOF'
+# under rsc/icons (the #feature-icon @script_icons_dir location). The
+# documentation pages are read from doc/scripts/, LF-normalized like the
+# script.
+python3 - "$STAGE_DIR" "$DIST_DIR/$ZIP_NAME" "$INSTALL_PATH" "$ICONS_PATH" \
+          "$DOC_SRC_DIR" "$DOC_PATH" "$DOC_PAGES" <<'PYEOF'
 import sys, os, zipfile
 
-stage, dest, install_path, icons_path = sys.argv[1:5]
+stage, dest, install_path, icons_path, doc_src, doc_path, doc_pages = sys.argv[1:8]
 FIXED_DATE = (2000, 1, 1, 0, 0, 0)  # constant mtime: sha1 depends on content only
 ALLOWED = {"DarkFrameAnalyzer.js", "DarkFrameAnalyzer.svg",
            "DarkFrameAnalyzer.xsgn"}
@@ -283,16 +305,19 @@ if unexpected:
     sys.exit("ERROR: unexpected entries in the stage directory: "
              + ", ".join(unexpected))
 
-entries = [(install_path + "/" + n, n) for n in names]
+entries = [(install_path + "/" + n, os.path.join(stage, n)) for n in names]
 if "DarkFrameAnalyzer.svg" in names:
     entries.append((icons_path + "/DarkFrameAnalyzer.svg",
-                    "DarkFrameAnalyzer.svg"))
+                    os.path.join(stage, "DarkFrameAnalyzer.svg")))
+for page in doc_pages.split():
+    entries.append((doc_path + "/" + page + "/" + page + ".html",
+                    os.path.join(doc_src, page, page + ".html")))
 entries.sort()
 
 with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
-    for arcname, name in entries:
-        with open(os.path.join(stage, name), "rb") as f:
-            data = f.read()
+    for arcname, path in entries:
+        with open(path, "rb") as f:
+            data = f.read().replace(b"\r\n", b"\n")
         info = zipfile.ZipInfo(arcname, date_time=FIXED_DATE)
         info.external_attr = 0o644 << 16
         info.create_system = 3  # fixed (unix): CPython defaults to 0 on Windows

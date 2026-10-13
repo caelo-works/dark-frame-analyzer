@@ -29,7 +29,7 @@
 #include <pjsr/UndoFlag.jsh>
 #include <pjsr/StdCursor.jsh>
 
-#define VERSION "1.10.0"
+#define VERSION "1.11.0"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
@@ -1478,6 +1478,21 @@ function writeTextFileCompat(path, text)
    f.close();
 }
 
+// Product page of the script on the CaeloWorks catalogue, in the language
+// of the interface. French is served from the site root; English is under
+// /en. Product identification only: it points at this script's own page,
+// never at the catalogue of the other scripts.
+function productPageUrl()
+{
+   return (gLanguage == "fr") ?
+      "https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer" :
+      "https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer";
+}
+
+// Opens a URL in the web browser the user's system is configured to use.
+// Only ever called from an explicit click on the byline, and the target is
+// shown in its tooltip beforehand. Documented in the script documentation
+// (doc/scripts/DarkFrameAnalyzer) and in the README.
 function openInBrowser(url)
 {
    var platform = String(CoreApplication.platform);
@@ -1729,10 +1744,11 @@ function DarkAnalyzerDialog()
    this.bylineLabel.useRichText = true;
    this.bylineLabel.text = "by <span style=\"color:#5a8fd0; text-decoration:underline;\">CaeloWorks</span> · v" + VERSION;
    this.bylineLabel.textAlignment = TextAlign_Left | TextAlign_VertCenter;
-   this.bylineLabel.toolTip = "https://pixinsight-scripts.caelo.works/en — v" + VERSION;
+   // toolTip is assigned by applyLanguage(): it carries the URL, which
+   // follows the language of the interface
    this.bylineLabel.onMousePress = function()
    {
-      openInBrowser("https://pixinsight-scripts.caelo.works/en");
+      openInBrowser(productPageUrl());
    };
    try { this.bylineLabel.cursor = new Cursor(StdCursor_PointingHand); } catch (e) {}
 
@@ -2173,6 +2189,7 @@ DarkAnalyzerDialog.prototype.applyLanguage = function()
    // Called once at construction and again on each language switch.
    this.helpLabel.text = tr("help");
    this.langLabel.text = tr("lang.label");
+   this.bylineLabel.toolTip = productPageUrl() + " — v" + VERSION;
 
    this.fileTreeBox.setHeaderText(0, tr("col.num"));
    this.fileTreeBox.setHeaderText(1, tr("col.file"));

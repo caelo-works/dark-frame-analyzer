@@ -3,9 +3,9 @@
 **This is written for a support agent, not for a user.** Quote it, do not
 paraphrase it: the sentences here are checked, a paraphrase is not.
 
-Applies to **1.10.0**. To check what a user is running: have them read the version
+Applies to **1.11.0**. To check what a user is running: have them read the version
 shown in plain text in the window header, next to the **by CaeloWorks** link under
-the title — it reads *by CaeloWorks · v1.10.0*.
+the title — it reads *by CaeloWorks · v1.11.0*.
 
 **The interface is bilingual — English and French — and the user will describe
 *their* window.** A French user says *« Rejet »*, not "Rejected"; *« Seuils de
@@ -32,12 +32,13 @@ darks into their master dark in WBPP.
 
 | | |
 |---|---|
-| Version | 1.10.0 |
+| Version | 1.11.0 |
 | Licence | GPL-3.0 — free and open source |
 | Requires | **PixInsight 1.9.0 or newer** — Windows, macOS, Linux |
 | Tested with | PixInsight 1.9.4 and 1.9.5 |
 | Where it appears | **Script → CaeloWorks → DarkFrameAnalyzer** |
 | Input formats | FITS (`.fits`, `.fit`, `.fts`) and XISF (`.xisf`) |
+| Documentation | Installed with the script by the update repository, in English and French, inside the PixInsight reference documentation |
 
 **The menu entry is spelled `DarkFrameAnalyzer`, as one word, with no spaces.** The
 window that opens is titled **Dark Frame Analyzer**. Users looking for a
@@ -61,7 +62,7 @@ three-word menu entry sometimes report they cannot find it.
 **There is no process icon and no headless mode.** Dark Frame Analyzer is a dialog
 only: it has no *New Instance* triangle, and its settings cannot be saved as a
 process icon or replayed from a script. Users coming from other CaeloWorks scripts
-ask for this. It does not exist in 1.10.0; do not promise it.
+ask for this. It does not exist in 1.11.0; do not promise it.
 
 ---
 
@@ -81,9 +82,15 @@ installs the script's icon, so it shows up next to the menu entry.
 
 ### "PixInsight warns me about an unsigned repository"
 
-**Expected, and harmless.** The CaeloWorks repository is not CPD-signed yet;
-signing is underway. It is a signature on the *repository*, not a virus warning.
-Tell the user it is safe to accept.
+**Not expected.** The CaeloWorks update repository is signed with the CaeloWorks
+Certified PixInsight Developer identity, and PixInsight verifies that signature
+before installing anything. First check that the URL the user added is exactly
+`https://pixinsight-scripts.caelo.works/update/`. If it is, **escalate**.
+
+**Never tell the user to accept an unsigned repository, nor to lower their
+PixInsight security preferences to get past the warning.** The PixInsight
+developer rules forbid it, and a warning on a signed repository is precisely the
+case the check exists for.
 
 ### Manual install
 
@@ -96,7 +103,9 @@ Tell the user it is safe to accept.
 A manual install has no icon file, so two cosmetic things differ, and **neither is
 a bug**: the menu shows PixInsight's default gear icon instead of the script's
 icon, and the window header shows the title and the *by CaeloWorks* link with no
-emblem next to them. The script itself works identically.
+emblem next to them. The script itself works identically. A manual install does
+not install the documentation either: point the user to the product page, or to the
+update repository route.
 
 ### "I installed it and I can't find it in the menus"
 
@@ -417,6 +426,37 @@ series."* (*« Aucun dark à exclure — série 100% propre. »*) and opens noth
 
 ---
 
+## Privacy, network and files
+
+Users and reviewers ask what the script does on their machine. These answers are
+exact; quote them.
+
+- **Network:** the script makes **no network connection** of its own. It downloads
+  nothing, sends nothing, and has **no telemetry** — no personal or usage data is
+  collected.
+- **The only external program:** clicking the **by CaeloWorks** line in the window
+  header opens the script's page on the developer website, in the user's default web
+  browser. The page follows the interface language:
+  `https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer` in English,
+  `https://pixinsight-scripts.caelo.works/scripts/dark-frame-analyzer` in French. The
+  URL shows in the tooltip before the click. To open it the script runs
+  `cmd /c start` (Windows), `/usr/bin/open` (macOS) or `xdg-open` (Linux), with the
+  URL as the only argument. **Nothing is launched without that click**, and no other
+  program is ever launched.
+- **Files written outside the PixInsight installation,** only on an explicit action,
+  where the user chooses: the CSV report, the `.txt` exclusion list, and the
+  `rejected/` subdirectory created next to the darks by **Move to rejected/...**
+  (after confirmation; files are moved, never deleted).
+- **Settings:** the detection thresholds and the interface language are stored
+  through PixInsight's own settings interface, under the `DarkFrameAnalyzer` key.
+- The script **never writes inside the PixInsight installation** and **never
+  modifies a dark frame**.
+
+The same section, in English and French, is in the documentation installed with the
+script.
+
+---
+
 ## Error messages, word for word
 
 The user will paste the message. English first, then the French the same message
@@ -603,7 +643,9 @@ Expected with a manual install: the icon file only ships through the update
 repository. The script is not broken.
 
 **"PixInsight says the repository is unsigned."**
-Expected. The CaeloWorks repository is not CPD-signed yet. It is safe to accept.
+Not expected: the repository is signed. Check the URL
+(`https://pixinsight-scripts.caelo.works/update/`), then escalate. Never advise
+accepting it or lowering the security preferences.
 
 **"I installed it but I can't find it."**
 It is at **Script → CaeloWorks → DarkFrameAnalyzer** — one word, in the CaeloWorks
@@ -635,7 +677,7 @@ actionable:
 
 1. **PixInsight version** and **operating system** (Help → About).
 2. **Dark Frame Analyzer version** — read it in plain text in the window header,
-   next to the **by CaeloWorks** link under the title (*by CaeloWorks · v1.10.0*).
+   next to the **by CaeloWorks** link under the title (*by CaeloWorks · v1.11.0*).
 3. **The Process Console output of the run.** It carries the detected acquisition
    parameters, the per-frame table, the series references and every alert with its
    numbers. It is almost always enough on its own.

@@ -8,3 +8,8 @@
 # L'icône embarquée dans le zip de distribution est normalisée en LF au
 # staging : autant que le fichier versionné soit déjà identique
 *.svg text eol=lf
+
+# Documentation: PIDoc sources and the pages compiled from them ship in
+# the update package; keep them byte-identical across platforms
+*.pidoc text eol=lf
+*.html text eol=lf
