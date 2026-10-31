@@ -6,6 +6,23 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.11.1] — 2026-10-31
+
+### Changed
+- The script is now signed with the CaeloWorks Certified PixInsight
+  Developer identity (CPD Program Rules, rule 5.1): the package ships
+  `DarkFrameAnalyzer.xsgn` next to the script, and PixInsight no longer
+  needs to allow the execution of unsigned scripts to run it.
+- Each release now ships two assets, the package zip and
+  `update-package.json`. The script alone is no longer attached: on its
+  own it would be unsigned. A manual install uses the script folder of the
+  zip, which carries the signature.
+- Releases are cut from a tag: CI builds and checks the package and opens
+  a draft release, signed and published afterwards with
+  `scripts/sign-package.sh`. The packaging tests now check the update
+  site's ingest contract (`scripts/check-package.sh`) and exercise the
+  signing step against a stubbed PixInsight.
+
 ## [1.11.0] — 2026-10-13
 
 ### Added
@@ -189,7 +206,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   anti-quantization safeguards, color-coded results table and detailed
   console report. Includes the Python reference implementation.
 
-[Unreleased]: https://github.com/caelo-works/dark-frame-analyzer/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/caelo-works/dark-frame-analyzer/compare/v1.11.1...HEAD
+[1.11.1]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.11.1
 [1.11.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.11.0
 [1.10.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.10.0
 [1.9.0]: https://github.com/caelo-works/dark-frame-analyzer/releases/tag/v1.9.0

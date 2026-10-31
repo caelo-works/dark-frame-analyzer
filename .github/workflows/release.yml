@@ -1,0 +1,86 @@
+name: Release
+
+# Push a tag vX.Y.Z: once the full CI passes, this builds the package and
+# opens a DRAFT release carrying it, unsigned. A draft is invisible to the
+# public and to the update site.
+#
+# CI cannot sign (it has neither PixInsight nor the CaeloWorks keys). The
+# CaeloWorks signing run (caelo-works/pixinsight-scripts, sign-releases.sh)
+# downloads the zip and update-package.json, runs this tag's
+# scripts/sign-package.sh on them, uploads both back over the draft's and
+# publishes it. See "Code signing" in the README.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version from tag
+        id: v
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: The tag must be documented
+        run: |
+          v="${{ steps.v.outputs.version }}"
+          grep -q "^## \[$v\]" CHANGELOG.md \
+            || { echo "::error::CHANGELOG.md has no [$v] section"; exit 1; }
+
+      - name: Build the distribution artifact
+        # The tag version is asserted against #define VERSION
+        run: bash scripts/build-update-package.sh "${{ steps.v.outputs.version }}"
+
+      - name: Contents match the update site's ingest contract
+        # Unsigned at this point; sign-package.sh checks it again, --signed
+        run: bash scripts/check-package.sh dist/DarkFrameAnalyzer-*.zip
+
+      - name: Release notes from the changelog
+        run: |
+          v="${{ steps.v.outputs.version }}"
+          awk -v v="$v" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on && /^\[[^]]+\]: / { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md
+
+      - name: Open the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --draft \
+            --verify-tag \
+            --title "Dark Frame Analyzer $GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            dist/DarkFrameAnalyzer-*.zip \
+            dist/update-package.json
+
+      - name: Say what is left to do
+        run: |
+          v="${{ steps.v.outputs.version }}"
+          {
+            echo "### Draft opened for $GITHUB_REF_NAME, unsigned"
+            echo
+            echo "Nothing is public yet. To sign and publish, from a machine with PixInsight and the keys:"
+            echo
+            echo '```'
+            echo "gh release download $GITHUB_REF_NAME -R $GITHUB_REPOSITORY -D dist"
+            echo "XSSK_PATH=/path/to/caeloworks.xssk scripts/sign-package.sh dist/DarkFrameAnalyzer-$v.zip"
+            echo "gh release upload $GITHUB_REF_NAME -R $GITHUB_REPOSITORY --clobber dist/DarkFrameAnalyzer-$v.zip dist/update-package.json"
+            echo "gh release edit $GITHUB_REF_NAME -R $GITHUB_REPOSITORY --draft=false"
+            echo '```'
+            echo
+            echo "A signed zip is not reproducible: give the site the sha1 of the signed update-package.json."
+          } >> "$GITHUB_STEP_SUMMARY"

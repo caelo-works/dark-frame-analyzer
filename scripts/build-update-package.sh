@@ -11,8 +11,6 @@
 #       as-is by the updater:
 #           src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.js
 #           src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.svg
-#           src/scripts/CaeloWorks/DarkFrameAnalyzer/DarkFrameAnalyzer.xsgn
-#                                                        (signed builds only)
 #           rsc/icons/script/DarkFrameAnalyzer/DarkFrameAnalyzer.svg
 #           doc/scripts/DarkFrameAnalyzer/DarkFrameAnalyzer.html
 #           doc/scripts/DarkFrameAnalyzer-fr/DarkFrameAnalyzer-fr.html
@@ -43,55 +41,18 @@
 # a different zlib/Python may yield a different (equally valid) sha1 —
 # the published sha1 is the one of the release build.
 #
-# --- Code signing (DISABLED by default) -----------------------------------
-# The CaeloWorks CPD identity is pending validation by Pleiades Astrophoto.
-# Until the public key ships with PixInsight, NO signed artifact must be
-# published: an unverifiable signature can block users where "unsigned"
-# only shows a dismissable warning. The signing step therefore runs ONLY
-# when XSSK_PATH points to the .xssk key file:
-#
-#   XSSK_PATH=/path/to/key.xssk scripts/build-update-package.sh <version>
-#
-# - The key password is prompted on the terminal (read -s) and crosses to
-#   PixInsight as a command-scoped environment variable: this script never
-#   writes it to a file, a log, a command line or this repository, and its
-#   other child processes never inherit it (a preset XSSK_PASS is moved
-#   out of the exported environment at startup). Presetting XSSK_PASS
-#   skips the prompt (automation/tests) — then YOU own where that value
-#   lives before it reaches this script (shell history, CI logs...).
-# - Signing runs inside PixInsight (Security.generateScriptSignatureFile),
-#   so a local PixInsight installation is required; override the detected
-#   executable with PIXINSIGHT_BIN. Only the main script (the one carrying
-#   the #feature-id) is signed; the .xsgn lands next to the .js in the zip.
-# - The .xsgn embeds a signing timestamp: a SIGNED zip is NOT
-#   byte-reproducible across signings. Each signing yields a new sha1;
-#   the site re-ingests the new artifact and regenerates its updates.xri.
-#
-# FIRST-SIGNING CHECKLIST (remaining items until the CPD key is validated):
-#   1. [VERIFIED 2026-07-11, PI 1.9.4 Windows] The command-line flags
-#      (-n --run= --force-exit) work, PixInsight writes output files, and
-#      the signing API sequence below (loadSigningKeysFile +
-#      generateScriptSignatureFile) succeeds with a local dev key.
-#      Signing REQUIRES the script identifier in #feature-id
-#      ("DarkFrameAnalyzer : ..."); without it PixInsight fails with
-#      "no script identifier defined".
-#   2. WSL layouts: paths are handed to Windows PixInsight as
-#      //wsl.localhost/... — PixInsight reads scripts from there in daily
-#      use, but confirm it can also WRITE the .xsgn back (verified only
-#      for C:/ paths so far). If not, stage on a Windows-side directory
-#      (e.g. under /mnt/c) and retry.
+# --- Code signing -----------------------------------------------------
+# This build never signs: CI has neither PixInsight nor the keys. A release
+# zip is signed afterwards, in place, by scripts/sign-package.sh (CPD Program
+# Rules, rule 5.1), which adds DarkFrameAnalyzer.xsgn next to the script,
+# re-zips through scripts/repro-zip.py and rewrites the sha1 of
+# update-package.json. See "Code signing" in the README.
 #
 # Usage:
 #   scripts/build-update-package.sh [expected-version]
 #   RELEASE_DATE=YYYYMMDD scripts/build-update-package.sh   # date override
 # ============================================================================
 set -euo pipefail
-
-# If the key password was preset in the environment (automation), move it
-# out of the exported environment IMMEDIATELY: no child of this script may
-# inherit it. It is re-injected only into the PixInsight invocation.
-XSSK_PASS_LOCAL="${XSSK_PASS:-}"
-unset XSSK_PASS
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_JS="$REPO_ROOT/DarkFrameAnalyzer.js"
@@ -139,193 +100,50 @@ rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR"
 rm -f "$DIST_DIR"/DarkFrameAnalyzer-*.zip "$DIST_DIR/update-package.json"
 
-# --- Stage the exact bytes that ship ---------------------------------------
-# CRLF -> LF normalized byte-exactly (python, not a line-oriented tool) so
-# the staged bytes never depend on the sed implementation or the git
-# autocrlf setting of the build machine. A signature generated on the
-# staged file covers exactly the shipped bytes.
+# --- Stage the install tree ----------------------------------------------
+# The stage mirrors the PixInsight installation directory: the zip is that
+# tree, as is. CRLF -> LF normalized byte-exactly (python, not a
+# line-oriented tool) so the staged bytes never depend on the sed
+# implementation or the git autocrlf setting of the build machine.
+# The icon is staged twice: next to the script (dialog header emblem) and
+# under rsc/icons (the #feature-icon @script_icons_dir location). The
+# documentation pages are read from doc/scripts/, where
+# scripts/build-script-doc.sh compiles them: building never needs PixInsight.
 if [ ! -f "$SCRIPT_SVG" ]; then
    echo "ERROR: icon not found: $SCRIPT_SVG" >&2
    exit 1
 fi
-python3 - "$SCRIPT_JS" "$STAGE_DIR/DarkFrameAnalyzer.js" \
-          "$SCRIPT_SVG" "$STAGE_DIR/DarkFrameAnalyzer.svg" <<'PYEOF'
-import sys
-
-args = sys.argv[1:]
-for src, dest in zip(args[0::2], args[1::2]):
-    with open(src, "rb") as f:
-        data = f.read()
-    with open(dest, "wb") as f:
-        f.write(data.replace(b"\r\n", b"\n"))
-PYEOF
-
-# --- Optional code signing -------------------------------------------------
-if [ -n "${XSSK_PATH:-}" ]; then
-   if [ ! -f "$XSSK_PATH" ]; then
-      echo "ERROR: XSSK_PATH does not exist: $XSSK_PATH" >&2
-      exit 1
-   fi
-
-   # These paths are interpolated into a generated PJSR string literal:
-   # reject characters that would break out of it or split it
-   case "$XSSK_PATH$STAGE_DIR" in
-      *\"*|*\\*|*$'\n'*)
-         echo "ERROR: paths used by the signing driver must not contain quotes, backslashes or newlines" >&2
-         exit 1 ;;
-   esac
-
-   # Locate the PixInsight executable (signing runs inside PixInsight)
-   PI_BIN="${PIXINSIGHT_BIN:-}"
-   if [ -z "$PI_BIN" ]; then
-      for cand in "/mnt/c/Program Files/PixInsight/bin/PixInsight.exe" \
-                  "/opt/PixInsight/bin/PixInsight" \
-                  "/Applications/PixInsight/PixInsight.app/Contents/MacOS/PixInsight"; do
-         if [ -x "$cand" ]; then
-            PI_BIN="$cand"
-            break
-         fi
-      done
-   fi
-   if [ -z "$PI_BIN" ]; then
-      echo "ERROR: PixInsight executable not found — set PIXINSIGHT_BIN" >&2
-      exit 1
-   fi
-
-   # Key password: prompted on the terminal; a preset XSSK_PASS (captured
-   # and un-exported at startup) skips the prompt for automation/tests
-   if [ -z "$XSSK_PASS_LOCAL" ]; then
-      if [ ! -t 0 ]; then
-         echo "ERROR: no terminal to prompt for the key password" >&2
-         echo "       (preset XSSK_PASS in the environment for non-interactive runs)" >&2
-         exit 1
-      fi
-      read -r -s -p "Password for $(basename "$XSSK_PATH"): " XSSK_PASS_LOCAL
-      echo
-   fi
-
-   # Paths as PixInsight sees them (Windows drive paths under WSL;
-   # forward slashes, which PixInsight uses on every platform)
-   if [[ "$PI_BIN" == /mnt/* ]] && command -v wslpath > /dev/null 2>&1; then
-      to_pi_path() { wslpath -m "$1"; }
-   else
-      to_pi_path() { printf '%s\n' "$1"; }
-   fi
-
-   # The signing driver contains paths only — never the password
-   SIGN_TMP="$(mktemp -d)"
-   trap 'rm -rf "$SIGN_TMP"' EXIT
-   # Same API sequence as the official CodeSign.js script: load the keys,
-   # then produce the detached .xsgn (empty entitlements). The key material
-   # is wiped as soon as the signature is written.
-   cat > "$SIGN_TMP/sign.js" <<EOF
-// Generated by build-update-package.sh — deleted after use
-var pass = getEnvironmentVariable("XSSK_PASS");
-if (!pass || pass.length === 0)
-   throw new Error("XSSK_PASS not present in the environment");
-var keys = Security.loadSigningKeysFile(
-   "$(to_pi_path "$XSSK_PATH")",
-   pass);
-if (!keys.valid)
-   throw new Error("Invalid signing keys file (wrong password?)");
-try {
-   Security.generateScriptSignatureFile(
-      "$(to_pi_path "$STAGE_DIR/DarkFrameAnalyzer.xsgn")",
-      "$(to_pi_path "$STAGE_DIR/DarkFrameAnalyzer.js")",
-      [],
-      keys.developerId,
-      keys.publicKey,
-      keys.privateKey);
-}
-finally {
-   keys.publicKey.secureFill();
-   keys.privateKey.secureFill();
-}
-EOF
-
-   echo "Signing DarkFrameAnalyzer.js with PixInsight..."
-   # The password crosses to PixInsight as a command-scoped environment
-   # variable: assignment prefixes are not part of argv, this script's
-   # other children never inherit it, and WSLENV (scoped the same way)
-   # forwards it across the WSL->Windows boundary when needed.
-   PI_STATUS=0
-   XSSK_PASS="$XSSK_PASS_LOCAL" WSLENV="${WSLENV:+$WSLENV:}XSSK_PASS" \
-      "$PI_BIN" -n --run="$(to_pi_path "$SIGN_TMP/sign.js")" --force-exit \
-      > "$SIGN_TMP/pi.log" 2>&1 || PI_STATUS=$?
-
-   if [ "$PI_STATUS" -ne 0 ] || [ ! -s "$STAGE_DIR/DarkFrameAnalyzer.xsgn" ]; then
-      echo "ERROR: signing failed — PixInsight exit=$PI_STATUS (output below)" >&2
-      echo "--- PixInsight output ------------------------------------------" >&2
-      # Redacted line by line in pure bash: the password must never reach
-      # a durable log, and must not appear on any command line either
-      while IFS= read -r line; do
-         [ -n "$XSSK_PASS_LOCAL" ] && line="${line//"$XSSK_PASS_LOCAL"/[redacted]}"
-         printf '%s\n' "$line" >&2
-      done < "$SIGN_TMP/pi.log"
-      echo "----------------------------------------------------------------" >&2
-      echo "See the FIRST-SIGNING CHECKLIST in this script's header." >&2
-      exit 1
-   fi
-   XSSK_PASS_LOCAL=""
-else
-   echo "NOTE: UNSIGNED package (CPD identity pending validation by Pleiades)."
-   echo "      Set XSSK_PATH=/path/to/key.xssk to enable code signing."
-fi
-
-# --- Compiled documentation pages ------------------------------------------
+STAGE_FILES=(
+   "$SCRIPT_JS"  "$INSTALL_PATH/DarkFrameAnalyzer.js"
+   "$SCRIPT_SVG" "$INSTALL_PATH/DarkFrameAnalyzer.svg"
+   "$SCRIPT_SVG" "$ICONS_PATH/DarkFrameAnalyzer.svg"
+)
 for page in $DOC_PAGES; do
    if [ ! -f "$DOC_SRC_DIR/$page/$page.html" ]; then
       echo "ERROR: documentation page not found: doc/scripts/$page/$page.html" >&2
       echo "       (run scripts/build-script-doc.sh and commit its output)" >&2
       exit 1
    fi
+   STAGE_FILES+=("$DOC_SRC_DIR/$page/$page.html" "$DOC_PATH/$page/$page.html")
 done
+python3 - "$STAGE_DIR" "${STAGE_FILES[@]}" <<'PYEOF'
+import os, sys
 
-# --- Reproducible zip ------------------------------------------------------
-# Built through Python's zipfile: entries are written in a fixed (sorted)
-# order with a constant timestamp and fixed permissions, so identical
-# content always yields an identical archive (stable sha1). Only the
-# expected files may ship: anything else in the stage is a hard error.
-# The icon is written twice: next to the script (dialog header emblem) and
-# under rsc/icons (the #feature-icon @script_icons_dir location). The
-# documentation pages are read from doc/scripts/, LF-normalized like the
-# script.
-python3 - "$STAGE_DIR" "$DIST_DIR/$ZIP_NAME" "$INSTALL_PATH" "$ICONS_PATH" \
-          "$DOC_SRC_DIR" "$DOC_PATH" "$DOC_PAGES" <<'PYEOF'
-import sys, os, zipfile
-
-stage, dest, install_path, icons_path, doc_src, doc_path, doc_pages = sys.argv[1:8]
-FIXED_DATE = (2000, 1, 1, 0, 0, 0)  # constant mtime: sha1 depends on content only
-ALLOWED = {"DarkFrameAnalyzer.js", "DarkFrameAnalyzer.svg",
-           "DarkFrameAnalyzer.xsgn"}
-
-names = sorted(os.listdir(stage))
-unexpected = [n for n in names if n not in ALLOWED]
-if unexpected:
-    sys.exit("ERROR: unexpected entries in the stage directory: "
-             + ", ".join(unexpected))
-
-entries = [(install_path + "/" + n, os.path.join(stage, n)) for n in names]
-if "DarkFrameAnalyzer.svg" in names:
-    entries.append((icons_path + "/DarkFrameAnalyzer.svg",
-                    os.path.join(stage, "DarkFrameAnalyzer.svg")))
-for page in doc_pages.split():
-    entries.append((doc_path + "/" + page + "/" + page + ".html",
-                    os.path.join(doc_src, page, page + ".html")))
-entries.sort()
-
-with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
-    for arcname, path in entries:
-        with open(path, "rb") as f:
-            data = f.read().replace(b"\r\n", b"\n")
-        info = zipfile.ZipInfo(arcname, date_time=FIXED_DATE)
-        info.external_attr = 0o644 << 16
-        info.create_system = 3  # fixed (unix): CPython defaults to 0 on Windows
-        z.writestr(info, data)
+stage, args = sys.argv[1], sys.argv[2:]
+for src, rel in zip(args[0::2], args[1::2]):
+    dest = os.path.join(stage, rel)
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    with open(src, "rb") as f:
+        data = f.read()
+    with open(dest, "wb") as f:
+        f.write(data.replace(b"\r\n", b"\n"))
 PYEOF
 
+# --- Reproducible zip ------------------------------------------------------
+python3 "$REPO_ROOT/scripts/repro-zip.py" "$STAGE_DIR" "$DIST_DIR/$ZIP_NAME"
+rm -rf "$STAGE_DIR"
+
 SHA1="$(sha1sum "$DIST_DIR/$ZIP_NAME" | cut -d' ' -f1)"
-SIGNED="$([ -s "$STAGE_DIR/DarkFrameAnalyzer.xsgn" ] && echo yes || echo no)"
 
 # --- Metadata contract for the site (aggregated updates.xri) ---------------
 cat > "$DIST_DIR/update-package.json" <<EOF
@@ -346,4 +164,4 @@ EOF
 echo "Built:"
 echo "  $DIST_DIR/$ZIP_NAME"
 echo "  $DIST_DIR/update-package.json"
-echo "  version=$VERSION sha1=$SHA1 releaseDate=$RELEASE_DATE signed=$SIGNED"
+echo "  version=$VERSION sha1=$SHA1 releaseDate=$RELEASE_DATE (unsigned)"

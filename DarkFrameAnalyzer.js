@@ -29,7 +29,7 @@
 #include <pjsr/UndoFlag.jsh>
 #include <pjsr/StdCursor.jsh>
 
-#define VERSION "1.11.0"
+#define VERSION "1.11.1"
 #define TITLE   "Dark Frame Analyzer"
 #define SCALE   65535
 
