@@ -70,7 +70,7 @@ SIGN_LIST="$NAME.js"
 if [ -t 0 ]; then
   printf 'PixInsight signing-key password for %s (not stored): ' "$DEVELOPER" >&2
 fi
-read -r -s __PW || true
+IFS= read -r -s __PW || true
 [ -t 0 ] && echo >&2
 [ -n "$__PW" ] || { echo "error: no password given" >&2; exit 1; }
 
@@ -126,22 +126,32 @@ done
 [ "$fail" = 0 ] || exit 1
 rm -f "$WORK/sign.js" "$REPORT"
 
-# Re-zip exactly as the build does, then give the sidecar the new sha1. The zip is
-# replaced only once the signed one exists in full.
-python3 "$REPO/scripts/repro-zip.py" "$WORK/pkg" "$WORK/signed.zip"
-mv "$WORK/signed.zip" "$ZIP"
-SHA1="$( sha1sum "$ZIP" | cut -d' ' -f1 )"
-python3 - "$SIDECAR" "$SHA1" <<'PY'
+# Re-zip exactly as the build does and give the sidecar the new sha1, both in the
+# work directory, and check them there: the zip and update-package.json next to
+# it are replaced only once the signed pair has passed every check, so a failure
+# at any point leaves them as they were.
+OUT="$WORK/out"
+mkdir -p "$OUT"
+python3 "$REPO/scripts/repro-zip.py" "$WORK/pkg" "$OUT/$( basename "$ZIP" )"
+SHA1="$( sha1sum "$OUT/$( basename "$ZIP" )" | cut -d' ' -f1 )"
+python3 - "$SIDECAR" "$OUT/update-package.json" "$SHA1" <<'PY'
 import json, sys
-path, sha1 = sys.argv[1], sys.argv[2]
-with open(path) as f:
+src, dest, sha1 = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(src) as f:
     meta = json.load(f)
 meta["sha1"] = sha1
-with open(path, "w") as f:
+with open(dest, "w") as f:
     json.dump(meta, f, indent=2, ensure_ascii=False)
     f.write("\n")
 PY
-echo "$( basename "$ZIP" ) signed by $DEVELOPER - sha1 $SHA1 (update-package.json updated)"
 
-bash "$REPO/scripts/check-package.sh" --signed "$ZIP"
-bash "$REPO/scripts/verify-signature.sh" "$ZIP"
+bash "$REPO/scripts/check-package.sh" --signed "$OUT/$( basename "$ZIP" )"
+bash "$REPO/scripts/verify-signature.sh" "$OUT/$( basename "$ZIP" )"
+
+# Copy next to the targets first (the work directory may be on another
+# filesystem), then rename: each file is swapped in one step.
+cp "$OUT/$( basename "$ZIP" )" "$ZIP.signing"
+cp "$OUT/update-package.json" "$SIDECAR.signing"
+mv "$ZIP.signing" "$ZIP"
+mv "$SIDECAR.signing" "$SIDECAR"
+echo "$( basename "$ZIP" ) signed by $DEVELOPER - sha1 $SHA1 (update-package.json updated)"

@@ -20,7 +20,8 @@
 #      .xsgn is added next to the entry script, every other file stays
 #      byte-identical, update-package.json gets the new sha1,
 #      check-package.sh --signed passes, the password reaches no artifact;
-#      a refused signature fails AND leaves the zip and sidecar untouched
+#      a refused signature, or a signed package that fails verification,
+#      fails AND leaves the zip and sidecar untouched
 #
 # The real signing needs PixInsight and the CaeloWorks keys: never in CI.
 #
@@ -127,7 +128,7 @@ if [ -n "${DFASIGN_REPORT:-}" ]; then
    done
    echo done >> "$DFASIGN_REPORT"
 elif [ -n "${DFAVERIFY_REPORT:-}" ]; then
-   if [ -f "${DFAVERIFY_JS%.js}.xsgn" ]; then
+   if [ -f "${DFAVERIFY_JS%.js}.xsgn" ] && [ -z "${FAKE_PI_VERIFY_FAILS:-}" ]; then
       echo "valid CaeloWorks DarkFrameAnalyzer 2026-01-01T00:00:00Z identity entitlements []" > "$DFAVERIFY_REPORT"
    else
       echo "invalid  DarkFrameAnalyzer" > "$DFAVERIFY_REPORT"
@@ -149,6 +150,19 @@ if echo wrong-password | PI_EXE="$stub/fake-pi" XSSK_PATH="$stub/fake.xssk" \
 fi
 test "$(sha1sum "$ZIP" | cut -d' ' -f1)" = "$unsigned_sha1"
 grep -q "\"sha1\": \"$unsigned_sha1\"" dist/update-package.json
+
+# Signed, but PixInsight rejects the result: same, nothing replaced
+if echo right-password | FAKE_PI_VERIFY_FAILS=1 PI_EXE="$stub/fake-pi" \
+      XSSK_PATH="$stub/fake.xssk" scripts/sign-package.sh "$ZIP" > /dev/null 2>&1; then
+   echo "ERROR: sign-package.sh succeeded although verification failed" >&2
+   exit 1
+fi
+test "$(sha1sum "$ZIP" | cut -d' ' -f1)" = "$unsigned_sha1"
+grep -q "\"sha1\": \"$unsigned_sha1\"" dist/update-package.json
+if ls dist/*.signing > /dev/null 2>&1; then
+   echo "ERROR: a failed signing left temporary files in dist/" >&2
+   exit 1
+fi
 
 # A good signature
 echo right-password | PI_EXE="$stub/fake-pi" XSSK_PATH="$stub/fake.xssk" \

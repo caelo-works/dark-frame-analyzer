@@ -30,6 +30,10 @@ note() { printf '  ok    %s\n' "$*"; }
 bad()  { printf '  FAIL  %s\n' "$*"; fail=1; }
 
 tree="$( unzip -Z1 "$ZIP" | grep -v '/$' )"
+# File contents are captured whole, never piped into grep -q: grep would stop at
+# the first match, unzip would die of SIGPIPE, and pipefail would report a
+# failure on a good package.
+member() { unzip -p "$ZIP" "$1" 2>/dev/null || true; }
 has() { printf '%s\n' "$tree" | grep -qxF "$1"; }
 
 echo "Package contract: $( basename "$ZIP" )"
@@ -37,12 +41,13 @@ echo "Package contract: $( basename "$ZIP" )"
 # The entry script, with the script identifier the signature is bound to.
 if has "$VENDOR/$NAME.js"; then
    note "entry script is in place"
-   if unzip -p "$ZIP" "$VENDOR/$NAME.js" | grep -q "^#feature-id[[:space:]]\{1,\}$NAME[[:space:]]*:"; then
+   entry="$( member "$VENDOR/$NAME.js" )"
+   if grep -q "^#feature-id[[:space:]]\{1,\}$NAME[[:space:]]*:" <<< "$entry"; then
       note "entry script declares #feature-id $NAME"
    else
       bad "$NAME.js has no '#feature-id $NAME : ...': it cannot be signed"
    fi
-   if unzip -p "$ZIP" "$VENDOR/$NAME.js" | grep -q $'\r'; then
+   if grep -q $'\r' <<< "$entry"; then
       bad "$NAME.js has CRLF line endings: the build normalizes to LF"
    fi
 else
@@ -62,8 +67,8 @@ if [ -z "$sigs" ]; then
 elif [ "$sigs" != "$VENDOR/$NAME.xsgn" ]; then
    bad "the only signature must be $VENDOR/$NAME.xsgn, found:"
    printf '%s\n' "$sigs" | sed 's/^/          /'
-elif ! unzip -p "$ZIP" "$VENDOR/$NAME.xsgn" \
-       | grep -q "<Signature [^>]*scriptId=\"$NAME\"[^>]*developerId=\"CaeloWorks\""; then
+elif ! grep -q "<Signature [^>]*scriptId=\"$NAME\"[^>]*developerId=\"CaeloWorks\"" \
+       <<< "$( member "$VENDOR/$NAME.xsgn" )"; then
    bad "$NAME.xsgn is not a CaeloWorks signature of script $NAME"
 else
    note "signed by CaeloWorks ($NAME.xsgn)"

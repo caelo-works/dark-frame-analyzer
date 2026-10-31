@@ -31,11 +31,12 @@ entries.sort()
 if not entries:
     sys.exit("ERROR: nothing to zip in " + stage)
 
-with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as z:
     for arc, full in entries:
         with open(full, "rb") as f:
             data = f.read()
         info = zipfile.ZipInfo(arc, date_time=FIXED_DATE)
         info.external_attr = 0o644 << 16
         info.create_system = 3  # fixed (unix): CPython defaults to 0 on Windows
+        info.compress_type = zipfile.ZIP_STORED
         z.writestr(info, data)

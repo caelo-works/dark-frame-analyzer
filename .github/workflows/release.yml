@@ -76,7 +76,8 @@ jobs:
             echo "Nothing is public yet. To sign and publish, from a machine with PixInsight and the keys:"
             echo
             echo '```'
-            echo "gh release download $GITHUB_REF_NAME -R $GITHUB_REPOSITORY -D dist"
+            echo "git checkout $GITHUB_REF_NAME"
+            echo "gh release download $GITHUB_REF_NAME -R $GITHUB_REPOSITORY -D dist --clobber"
             echo "XSSK_PATH=/path/to/caeloworks.xssk scripts/sign-package.sh dist/DarkFrameAnalyzer-$v.zip"
             echo "gh release upload $GITHUB_REF_NAME -R $GITHUB_REPOSITORY --clobber dist/DarkFrameAnalyzer-$v.zip dist/update-package.json"
             echo "gh release edit $GITHUB_REF_NAME -R $GITHUB_REPOSITORY --draft=false"

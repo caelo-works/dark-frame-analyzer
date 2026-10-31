@@ -37,9 +37,9 @@
 #
 # The unsigned zip is reproducible on a given build environment (fixed
 # entry order, mtimes, permissions, line endings and creator system):
-# rebuilt there, its sha1 only changes when the content changes. Builds on
-# a different zlib/Python may yield a different (equally valid) sha1 —
-# the published sha1 is the one of the release build.
+# rebuilt there, its sha1 only changes when the content changes. Entries
+# are stored, not compressed, so the bytes do not depend on the zlib of the
+# build machine either.
 #
 # --- Code signing -----------------------------------------------------
 # This build never signs: CI has neither PixInsight nor the keys. A release
