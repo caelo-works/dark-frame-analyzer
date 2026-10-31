@@ -4,7 +4,7 @@
 
 ### Analyze your dark frame series and reject out-of-spec frames before WBPP integration
 
-[![Version](https://img.shields.io/badge/version-1.11.0-22d3ee?style=for-the-badge&labelColor=0f172a)](https://github.com/caelo-works/dark-frame-analyzer/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.11.1-22d3ee?style=for-the-badge&labelColor=0f172a)](https://github.com/caelo-works/dark-frame-analyzer/releases/latest)
 [![PixInsight](https://img.shields.io/badge/PixInsight-%E2%89%A5%201.9.0-67e8f9?style=for-the-badge&labelColor=0f172a)](https://pixinsight.com/)
 [![Status](https://img.shields.io/badge/status-stable-34d399?style=for-the-badge&labelColor=0f172a)](https://pixinsight-scripts.caelo.works/en/scripts/dark-frame-analyzer)
 [![License](https://img.shields.io/badge/license-GPL--3.0-94a3b8?style=for-the-badge&labelColor=0f172a)](LICENSE)
@@ -57,15 +57,20 @@ In PixInsight, open **Resources → Updates → Manage Repositories** and add
 **Resources → Updates → Check for Updates**, accept the install and restart.
 Updates are then delivered automatically through the same channel.
 
-> The update repository is signed with the CaeloWorks Certified PixInsight
-> Developer identity, which PixInsight verifies before installing anything.
+> Both the update repository and the script itself are signed with the
+> CaeloWorks Certified PixInsight Developer identity: PixInsight verifies the
+> repository before installing anything, and the script's signature
+> (`DarkFrameAnalyzer.xsgn`, next to the script) every time it runs. Since
+> 1.11.1 the script runs with *Allow execution of unsigned scripts* turned off.
 
 ### Manual install
 
-Download `DarkFrameAnalyzer.js` from the **[Releases](https://github.com/caelo-works/dark-frame-analyzer/releases)**, then in
-PixInsight use **Script → Feature Scripts…**, click **Add** and select the
-folder containing the file. Alternatively, run it once via
-**Script → Execute Script File…**.
+Download `DarkFrameAnalyzer-<version>.zip` from the **[Releases](https://github.com/caelo-works/dark-frame-analyzer/releases)** and
+extract it. The script is in `src/scripts/CaeloWorks/DarkFrameAnalyzer/`,
+together with its signature `DarkFrameAnalyzer.xsgn`: keep the two files
+side by side, in that folder, or the signature no longer applies. Then in
+PixInsight use **Script → Feature Scripts…**, click **Add** and select that
+folder. Alternatively, run it once via **Script → Execute Script File…**.
 
 > **Requires PixInsight 1.9.0 or newer** — Windows, macOS and Linux.
 > Tested up to PixInsight 1.9.5.
@@ -170,9 +175,53 @@ allowed by the PixInsight Update Repository Reference, that no `etc/` tree
 nor file of the PixInsight distribution ships, and that the integrated
 documentation page is present.
 
-**Every GitHub release must attach three assets:** `DarkFrameAnalyzer.js`,
-the versioned zip and `update-package.json` — and move the corresponding
-`CHANGELOG.md` entries out of *Unreleased*.
+### Cutting a release
+
+Bump `#define VERSION`, move the `CHANGELOG.md` entries out of
+*Unreleased* into a `## [X.Y.Z]` section, merge, then push the tag
+`vX.Y.Z`. The *Release* workflow runs the whole CI, builds the package,
+checks it with `scripts/check-package.sh` and opens a **draft** release
+with exactly two assets: the versioned zip and `update-package.json`,
+both unsigned. A draft is invisible to users and to the update site until
+it is signed and published.
+
+### Code signing
+
+Every release is signed with the CaeloWorks identity of the Certified
+PixInsight Developer program (CPD Program Rules, rule 5.1): users never
+have to allow the execution of unsigned scripts to run this one.
+
+Signing happens after the build, on the zip — never in CI (no PixInsight,
+no keys) and never in `build-update-package.sh`:
+
+```bash
+XSSK_PATH=/path/to/caeloworks.xssk scripts/sign-package.sh dist/DarkFrameAnalyzer-<version>.zip
+```
+
+`sign-package.sh` takes the zip as its only argument and expects
+`update-package.json` next to it. It reads the key password from stdin
+(prompted on a terminal, one line when piped) and hands it only to the
+PixInsight process that signs. It signs `DarkFrameAnalyzer.js` as the zip
+carries it, adds `DarkFrameAnalyzer.xsgn` next to it, re-zips with the
+build's exact layout (`scripts/repro-zip.py`), rewrites the sha1 in
+`update-package.json`, then runs `scripts/check-package.sh --signed` and
+`scripts/verify-signature.sh`. It exits non-zero on any failure.
+
+- **One signature, the entry script's.** It covers every file the script
+  `#include`s, except PixInsight's own `include/pjsr` headers, which are
+  secure code excluded from the signed source: a PixInsight update to them
+  does not invalidate the signature.
+- **No entitlements declared.** The `pjsr.*`/`pcl.*` entitlements that
+  `verify-signature.sh` prints belong to the CaeloWorks identity.
+- **A signed zip is not reproducible**: the signature carries a timestamp.
+  The site must ingest the sha1 of the signed `update-package.json`.
+- **The signing PixInsight must allow unsigned scripts**: the small PJSR
+  runners that sign and verify are not signed themselves. If PixInsight
+  refuses them, both scripts stop with an error saying so.
+- On WSL, `scripts/pi-run.sh` hands the Windows PixInsight its paths and
+  variables (`wslpath`, `WSLENV`) and works under the Windows `%TEMP%`;
+  elsewhere, set `PI_EXE` to the PixInsight executable.
+- The keys never enter this repository (`*.xssk` is ignored).
 
 ## Links
 

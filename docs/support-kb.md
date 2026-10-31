@@ -3,9 +3,9 @@
 **This is written for a support agent, not for a user.** Quote it, do not
 paraphrase it: the sentences here are checked, a paraphrase is not.
 
-Applies to **1.11.0**. To check what a user is running: have them read the version
+Applies to **1.11.1**. To check what a user is running: have them read the version
 shown in plain text in the window header, next to the **by CaeloWorks** link under
-the title — it reads *by CaeloWorks · v1.11.0*.
+the title — it reads *by CaeloWorks · v1.11.1*.
 
 **The interface is bilingual — English and French — and the user will describe
 *their* window.** A French user says *« Rejet »*, not "Rejected"; *« Seuils de
@@ -32,7 +32,7 @@ darks into their master dark in WBPP.
 
 | | |
 |---|---|
-| Version | 1.11.0 |
+| Version | 1.11.1 |
 | Licence | GPL-3.0 — free and open source |
 | Requires | **PixInsight 1.9.0 or newer** — Windows, macOS, Linux |
 | Tested with | PixInsight 1.9.4 and 1.9.5 |
@@ -62,7 +62,7 @@ three-word menu entry sometimes report they cannot find it.
 **There is no process icon and no headless mode.** Dark Frame Analyzer is a dialog
 only: it has no *New Instance* triangle, and its settings cannot be saved as a
 process icon or replayed from a script. Users coming from other CaeloWorks scripts
-ask for this. It does not exist in 1.11.0; do not promise it.
+ask for this. It does not exist in 1.11.1; do not promise it.
 
 ---
 
@@ -92,18 +92,34 @@ PixInsight security preferences to get past the warning.** The PixInsight
 developer rules forbid it, and a warning on a signed repository is precisely the
 case the check exists for.
 
+### "PixInsight says the script is unsigned" or "asks me to allow unsigned scripts"
+
+**Not expected from 1.11.1 on.** The script is signed with the CaeloWorks
+Certified PixInsight Developer identity: its signature, `DarkFrameAnalyzer.xsgn`,
+sits next to `DarkFrameAnalyzer.js` and PixInsight checks it every time the script
+runs. Have the user check their version (window header). Versions up to 1.11.0
+were not signed: tell them to update through the update repository. On 1.11.1 or
+later, the usual cause is a manual install where the `.xsgn` was not kept next to
+the `.js`, or where the `.js` was edited. If neither applies, **escalate**.
+
+**Never tell the user to turn on "Allow execution of unsigned scripts", nor to lower
+any other PixInsight security preference.**
+
 ### Manual install
 
-1. Download `DarkFrameAnalyzer.js` from the releases page:
-   https://github.com/caelo-works/dark-frame-analyzer/releases
-2. In PixInsight: **Script → Feature Scripts… → Add**, and select the **folder**
-   containing the file (not the file itself).
-3. Alternatively, run it once with **Script → Execute Script File…**
+1. Download `DarkFrameAnalyzer-<version>.zip` from the releases page and extract
+   it: https://github.com/caelo-works/dark-frame-analyzer/releases
+2. The script is in `src/scripts/CaeloWorks/DarkFrameAnalyzer/`, with its
+   signature `DarkFrameAnalyzer.xsgn`. **The two files must stay together, in the
+   same folder**, or PixInsight treats the script as unsigned.
+3. In PixInsight: **Script → Feature Scripts… → Add**, and select **that folder**
+   (not the file itself).
+4. Alternatively, run it once with **Script → Execute Script File…**
 
-A manual install has no icon file, so two cosmetic things differ, and **neither is
-a bug**: the menu shows PixInsight's default gear icon instead of the script's
-icon, and the window header shows the title and the *by CaeloWorks* link with no
-emblem next to them. The script itself works identically. A manual install does
+A manual install does not install the menu icon, so the menu shows PixInsight's
+default gear icon instead of the script's icon. **This is not a bug.** The window
+header still shows the emblem, which comes from the `DarkFrameAnalyzer.svg` file
+next to the script. The script itself works identically. A manual install does
 not install the documentation either: point the user to the product page, or to the
 update repository route.
 
@@ -639,8 +655,13 @@ darks. The script cannot undo the move; they drag them back out in their file
 manager. Then click **Analyze** again.
 
 **"The menu shows a gear icon instead of the script's icon."**
-Expected with a manual install: the icon file only ships through the update
-repository. The script is not broken.
+Expected with a manual install: only the update repository installs the menu
+icon. The script is not broken.
+
+**"PixInsight says the script is unsigned."**
+Not expected from 1.11.1 on: the script is signed. Check the version, then that a
+manual install kept `DarkFrameAnalyzer.xsgn` next to `DarkFrameAnalyzer.js`, then
+escalate. Never advise allowing unsigned scripts.
 
 **"PixInsight says the repository is unsigned."**
 Not expected: the repository is signed. Check the URL
@@ -677,7 +698,7 @@ actionable:
 
 1. **PixInsight version** and **operating system** (Help → About).
 2. **Dark Frame Analyzer version** — read it in plain text in the window header,
-   next to the **by CaeloWorks** link under the title (*by CaeloWorks · v1.11.0*).
+   next to the **by CaeloWorks** link under the title (*by CaeloWorks · v1.11.1*).
 3. **The Process Console output of the run.** It carries the detected acquisition
    parameters, the per-frame table, the series references and every alert with its
    numbers. It is almost always enough on its own.
